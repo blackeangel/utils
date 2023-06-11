@@ -13,4 +13,7 @@ fi
 }
 
 ndk-build NDK_PROJECT_PATH=. NDK_APP_LIBS_OUT=out NDK_APPLICATION_MK=Application.mk $@
+name_file="bin_utils_"$(date +%Y%m%d%H%M)
+cd ./out/armeabi-v7a
+../../zip -9D /sdcard/$name_file.zip ./*
 
