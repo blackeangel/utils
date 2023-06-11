@@ -62,8 +62,9 @@ ProcessResult HexPatch::process()
             std::size_t offs = findBackwardOffsetInFile(fin, 256, (char *)data.data(), data.size());
             off.push_back(offs);
         }
+        fclose(fin);
     }
-    fclose(fin);
+
     std::fstream img(image_file, std::ios::in | std::ios::out | std::ios::binary);
     for (auto &&offset : off)
     {

@@ -98,7 +98,7 @@ std::vector<std::pair<int, int>> rangeset(std::string src)
 {
     std::vector<std::string> src_set = split(src, ',');
     std::vector<int> num_set;
-    for (auto item : src_set)
+    for (auto& item : src_set)
     {
         num_set.push_back(stoi(item));
     }
@@ -149,7 +149,7 @@ size_t partialCopy(std::ifstream &in, std::ofstream &out, size_t start, size_t f
 
         size_t totalNeedToRead = finish - start;
 
-        std::unique_ptr<char> readBuf(new char[bufSize]);
+        std::unique_ptr<char[]> readBuf(new char[bufSize]);
 
         size_t totalRead = 0;
 

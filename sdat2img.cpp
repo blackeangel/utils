@@ -80,7 +80,8 @@ ProcessResult Sdat2Img::process()
         long end = block.second;
         long block_count = end - begin;
         long blocks = block_count * BLOCK_SIZE;
-        long long position = begin * BLOCK_SIZE;
+        //long long position = begin * BLOCK_SIZE;
+        long long position = (long long)begin * BLOCK_SIZE;
         unsigned long offset = position % ULONG_MAX;
         int cycles = position / ULONG_MAX;
 

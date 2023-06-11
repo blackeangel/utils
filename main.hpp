@@ -1,4 +1,5 @@
-﻿#include <cstdlib>
+﻿#pragma once
+#include <cstdlib>
 #include <climits>
 #include <cstdio>
 #include <cstring>
