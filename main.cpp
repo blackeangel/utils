@@ -109,7 +109,8 @@ int main(int argc, char* argv[])
     switch (obj->parse_cmd_line(argc - 2, argv + 2))
     {
         case ParseResult::not_enough:
-            std::cerr << "Not enough command line parameters!\n";
+            obj->show_help();
+//            std::cerr << "Not enough command line parameters!\n";
             return EXIT_FAILURE;
         case ParseResult::wrong_hex:
             std::cerr << "Wrong hexstring is specified!\n";
@@ -127,13 +128,19 @@ int main(int argc, char* argv[])
         case ProcessResult::open_error:
             std::cerr << "File open error!\n";
             return EXIT_FAILURE;
+        case ProcessResult::seek_error:
+            std::cerr << "File seek error!\n";
+            return EXIT_FAILURE;
         case ProcessResult::read_error:
-            std::cerr << "File seek/read error!\n";
+            std::cerr << "File read error!\n";
+            return EXIT_FAILURE;
+        case ProcessResult::write_error:
+            std::cerr << "File write error!\n";
             return EXIT_FAILURE;
         case ProcessResult::ok:
             break;
         default:
-            return EXIT_FAILURE;  // вообще, такого быть не должно, просто на всякий случай!
+            return EXIT_FAILURE;
     }
     return EXIT_SUCCESS;
 }

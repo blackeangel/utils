@@ -1,78 +1,43 @@
-#include "main.hpp"
+﻿#include "main.hpp"
 
 // Помощь по параметрам командной строки
 void HexPatch::show_help()
 {
-    fprintf(stderr, R"EOF(
-hexpatch
-
-Usage:
-  hexpatch <file> <what_find in hex> <what_replace in hex> <way>
-      Where way as integer:
-      way = 0 - first find from begin file, by default
-      way = 1 - all finds in file
-      way = -1 - reverse first find, from end file
-)EOF");
-    fprintf(stderr, "\n");
-
+    std::cout <<
+R"***(Usage:
+  utils hexpatch <file> <hexstring_to_find> <hexstring_to_replace> <way>
+where way is:
+  0 - first find from begin file, by default
+  1 - all finds in file
+  -1 - reverse first find, from end file
+)***";
 }
 
 // Парсить командную строку
 ParseResult HexPatch::parse_cmd_line(int argc, char* argv[])
 {
-    if(argc ==0){show_help();}
-    if (argc == 3)
-    {
-        image_file = argv[0];
-        whatfind = argv[1];
-        whatreplace = argv[2];
-    }else if (argc == 4)
-    {
-        image_file = argv[0];
-        whatfind = argv[1];
-        whatreplace = argv[2];
-        way = atoi(argv[3]);
-    }else{ return ParseResult::wrong_option;}
-
+    if (argc < 3) { return ParseResult::not_enough; }
+    image_file = argv[0];
+    if (!parse_hexstring(argv[1], what_find) ||
+        !parse_hexstring(argv[2], what_replace)) { return ParseResult::wrong_hex; }
+    if (argc > 3) { way = atoi(argv[3]); }
+    if (argc > 4 || way < -1 || way > 3) { return ParseResult::wrong_option; }
     return ParseResult::ok;
 }
 
 // Основная функция
 ProcessResult HexPatch::process()
 {
-    std::string whatfindstr = viravn_offset(whatfind);
-    std::string whatreplacestr = viravn_offset(whatreplace);
-    if (whatfindstr.length() != whatreplacestr.length())
-    {
-        std::cout << "Length " << whatfind << " more than length " << whatreplace << std::endl;
-        return static_cast<ProcessResult>(-1);
-    }
-    std::vector<char> data = hex2byte(whatfindstr.c_str());
-    std::vector<char> data1 = hex2byte(whatreplacestr.c_str());
-    std::vector<std::size_t> off;
-    std::FILE *fin = std::fopen(image_file.string().c_str(), "rb");
-    if (fin)
-    {
-        if (way == 0 || way == 1)
+    std::cout << std::hex;
+    auto result = find_in_file(
+        [&](std::fstream& file, long long offset, long long number)
         {
-            off = findOffsetInFile(fin, 256, (char *)data.data(), data.size(), way);
-        }
-        if (way == -1)
-        {
-            std::size_t offs = findBackwardOffsetInFile(fin, 256, (char *)data.data(), data.size());
-            off.push_back(offs);
-        }
-        fclose(fin);
-    }
-
-    std::fstream img(image_file, std::ios::in | std::ios::out | std::ios::binary);
-    for (auto &&offset : off)
-    {
-        img.seekp(offset);
-        img.write(data1.data(), data1.size());
-    }
-    img.close();
-
-    return ProcessResult::ok;
+            if (!file.seekp(offset)) { return ProcessResult::seek_error; }
+            if (!file.write(what_replace.data(), what_replace.size()) || !file.flush()) { return ProcessResult::write_error; }
+            std::cout << offset << "\n";
+            return ProcessResult::ok;
+        }, image_file, what_find, false, way != -1, 0, LLONG_MAX, way == 1 ? LLONG_MAX : 1);
+    if (result.first != ProcessResult::ok) { --result.second; }
+    std::cout << "Replaces: " << std::dec << result.second << '\n';
+    return result.first;
 }
-

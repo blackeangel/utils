@@ -1,5 +1,124 @@
 ﻿#include "main.hpp"
 
+// Поиск строки (вектора символов) search_str в файле filename и вызов функции callback для каждого вхождения.
+// Подробное описание см. в файле main.hpp.
+std::pair<ProcessResult, long long> find_in_file(std::function<ProcessResult(std::fstream&, long long, long long)> callback,
+    const char* filename, const std::vector<char>& search_str, bool read_only, bool forward,
+    long long start_offset, long long search_size, long long max_count, long long buf_size)
+{
+    // Открытие файла и получение размера
+    auto mode = std::ios::binary | std::ios::in;
+    if (!read_only) { mode |= std::ios::out; }
+    std::fstream file(filename, mode);
+    if (!file) { return {ProcessResult::open_error, 0}; }
+    if (!file.seekg(0, std::ios::end)) { return {ProcessResult::seek_error, 0}; }
+    long long file_size = file.tellg();
+
+    // Перемещение на начальную позицию
+    if (start_offset >= 0) {
+        if (!file.seekg(start_offset)) { return {ProcessResult::seek_error, 0}; }
+    } else if (start_offset < 0) {
+        if (!file.seekg(start_offset, std::ios::end)) { return {ProcessResult::seek_error, 0}; }
+    }
+
+    // Проверка размера файла
+    start_offset = file.tellg();
+    search_size = std::min<long long>(file_size - start_offset, search_size);
+    if (search_size < (long long)search_str.size()) {
+        return {ProcessResult::ok, 0};  // файл меньше длины строки
+    }
+    buf_size = std::min(buf_size, search_size);
+
+    // Поиск
+    std::vector<char> buf(buf_size);
+    long long found_count = 0;
+    if (forward) {
+        // Поиск вперёд
+        long long end_offset = start_offset + search_size;
+        long long buf_read_pos = 0;
+        long long file_pos = start_offset;
+        do {
+            // Читаем
+            long long buf_file_offset = file_pos - buf_read_pos;
+            long long read_size = std::min<long long>(buf_size - buf_read_pos, end_offset - file_pos);
+            if (read_size <= 0) { break; }
+            if (!file.seekg(file_pos)) { return {ProcessResult::seek_error, found_count}; }
+            file.read(buf.data() + buf_read_pos, read_size);
+            if (!file/* && !file.eof()*/) { return {ProcessResult::read_error, found_count}; }
+            file_pos += file.gcount();
+            // Ищем
+            long long count = file.gcount();
+            auto start = buf.data();
+            auto end = start + buf_read_pos + count;
+            while (true) {
+                auto pos = std::search(start, end, search_str.begin(), search_str.end());
+                if (pos == end) { break; }
+                auto result = callback(file, buf_file_offset + pos - buf.data(), ++found_count);
+                if (result != ProcessResult::ok) { return {result, found_count}; }
+                if (found_count == max_count) { return {ProcessResult::ok, found_count}; };
+                start = pos + 1;
+                if (end - start < (long long)search_str.size()) { break; }
+            }
+            // Копируем search_str.size() - 1 байтов из конца буфера в начало
+            if (search_str.size() > 1) {
+                buf_read_pos = search_str.size() - 1;
+                std::copy(end - buf_read_pos, end, buf.data());
+            }
+        } while (!file.eof());
+    } else {
+        // Поиск назад
+        long long end_offset = std::min(start_offset + search_size, file_size);
+        long long read_offset = end_offset;
+        long long tail_size = 0;
+        do {
+            // Читаем
+            long long read_size = std::min(buf_size - tail_size, read_offset - start_offset);
+            read_offset -= read_size;
+            if (!file.seekg(read_offset)) { return {ProcessResult::seek_error, found_count}; }
+            auto start = buf.data() + buf_size - tail_size - read_size;
+            if (!file.read(start, read_size) || file.gcount() != read_size) { return {ProcessResult::read_error, found_count}; }
+            // Ищем
+            auto end = start + read_size + tail_size;
+            while (true) {
+                auto pos = std::find_end(start, end, search_str.begin(), search_str.end());
+                if (pos == end) { break; }
+                auto result = callback(file, read_offset + pos - start, ++found_count);
+                if (result != ProcessResult::ok) { return {result, found_count}; }
+                if (found_count == max_count) { return {ProcessResult::ok, found_count}; };
+                end = pos + search_str.size() - 1;
+                if (end - start < (long long)search_str.size()) { break; }
+            }
+            // Копируем search_str.size() - 1 байтов из начала буфера в конец
+            if (search_str.size() > 1) {
+                tail_size = search_str.size() - 1;
+                std::copy_backward(buf.data(), buf.data() + tail_size, buf.data() + buf_size);
+            }
+        } while (read_offset > start_offset);
+    }
+    return {ProcessResult::ok, found_count};
+}
+
+// Преобразовать hex-строку в вектор символов, вернуть флаг успеха
+bool parse_hexstring(const char* hexstring, std::vector<char>& result)
+{
+    result.clear();
+    char prev = char(-1);
+    for (char ch : std::string_view(hexstring)) {
+        if (ch >= '0' && ch <= '9') { ch -= '0'; }
+        else if (ch >= 'a' && ch <= 'f') { ch -= 'a' - 10; }
+        else if (ch >= 'A' && ch <= 'F') { ch -= 'A' - 10; }
+        else if ((ch != ' ' && ch != '.' && ch != ',' && ch != '-' && ch != ':') || prev != char(-1)) {
+            return false;
+        }
+        if (prev == char(-1)) { if (ch < 16) { prev = ch; } }
+        else {
+            result.push_back(prev << 4 | ch);
+            prev = char(-1);
+        }
+    }
+    return (prev == char(-1) && result.size() > 0);
+}
+
 // Парсить число long из строки
 bool parse_long(const char* s, long& result)
 {

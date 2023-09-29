@@ -16,6 +16,7 @@
 #include <chrono>
 #include <iterator>
 #include <memory>
+#include <functional>
 
 using namespace std::string_view_literals;
 
@@ -35,9 +36,12 @@ enum class ParseResult
 // Результаты основной работы
 enum class ProcessResult
 {
-    open_error,  // ошибка открытия файла
-    read_error,  // ошибка чтения
-    ok           // успешно
+    open_error,   // ошибка открытия файла
+    seek_error,   // ошибка позиционирования
+    read_error,   // ошибка чтения
+    write_error,  // ошибка записи
+    breaked,      // прервано
+    ok            // успешно
 };
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -189,28 +193,21 @@ private:
     std::vector<char> search_str;       // искомая строка
     long long start_offset = 0;         // начальное смещение
     long long search_size = LLONG_MAX;  // размер блока поиска
-    long max_count = INT_MAX;           // максимальное кол-во смещений
-    bool reverse_search = false;        // поиск с конца
+    long long max_count = LLONG_MAX;    // максимальное кол-во смещений
+    bool forward = true;                // поиск с начала (иначе с конца)
     bool hex_offsets = true;            // 16-ричный вывод
     bool hex_uppercase = false;         // 16-ричный вывод в верхнем регистре
     bool hex_prefix = false;            // добавлять префикс для 16-ричных чисел
     char sep_char = '\n';               // разделитель смещений
     bool show_stat = true;              // вывод статистики
-
     long long buf_size = 1024 * 1024;   // размер буфера
-    long long found_count = 0;          // кол-во найденных смещений
-    long long file_size;                // размер файла
 
-    // Искать строку вперёд
-    ProcessResult find_forward(std::ifstream& file);
-    // Искать строку назад
-    ProcessResult find_backward(std::ifstream& file);
-    // Вывести смещение и увеличить кол-во
-    // Если кол-во достигло предельного значения, возвращается false
-    bool new_offset(long long offset);
+    // Вывести смещение
+    bool show_offset(std::fstream& file, long long offset, long long number);
 };
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 class HexPatch : public UtilBase
 {
 public:
@@ -222,13 +219,33 @@ public:
     ProcessResult process() override;
 
 private:
-    std::filesystem::path image_file;
-    const char *whatfind;
-    const char *whatreplace;
+    const char* image_file;
+    std::vector<char> what_find;
+    std::vector<char> what_replace;
     int way = 0;
 };
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// Поиск строки (вектора символов) search_str в файле filename и вызов функции callback для каждого вхождения.
+// Возвращает результат операции (в т.ч. возвращаемый функцией callback) и кол-во найденных вхождений.
+// read_only - открыть только для чтения (true, если не предполагается замена), forward - направление (true - вперёд),
+// start_offset - начальное смещение (отрицательное - с конца), search_size - размер области поиска,
+// max_count - максимальное кол-во вхождений, buf_size - размер буфера.
+// P.S. start_offset - это не смещение, с которого начинается поиск, а начало блока размером search_size.
+// Т.е. при forward = false поиск начинается не с позиции start_offset, а с start_offset + search_size.
+// Функция callback должна иметь объявление: bool callback(std::fstream& file, long long offset, long long number);
+// Здесь file - объект открытого файла, offset - смещение, по которому была найдена строка, number - номер вхождения.
+// Функция возвращает ProcessResult::ok, если нужно продолжить поиск, другие значения в противном случае false.
+// Текущая позиция файла обычно не совпадает со смещением (offset). При необходимости выполнить замену нужно сначала
+// переместить указатель в нужную позицию (file.seekp(offset)). Восстанавливать прежнюю позицию нет необходимости.
+std::pair<ProcessResult, long long> find_in_file(std::function<ProcessResult(std::fstream&, long long, long long)> callback,
+    const char* filename, const std::vector<char>& search_str, bool read_only, bool forward = true,
+    long long start_offset = 0, long long search_size = LLONG_MAX, long long max_count = INT_MAX,
+    long long buf_size = 1024*1024);
+
+// Преобразовать hex-строку в вектор символов, вернуть флаг успеха
+bool parse_hexstring(const char* hexstring, std::vector<char>& result);
 
 // Парсить число long из строки
 bool parse_long(const char* s, long& result);
