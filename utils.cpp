@@ -49,11 +49,11 @@ std::pair<ProcessResult, long long> find_in_file(std::function<ProcessResult(std
             // Ищем
             long long count = file.gcount();
             auto start = buf.data();
-            auto end = start + buf_read_pos + count;
+            auto end = start + (buf_read_pos + count);
             while (true) {
                 auto pos = std::search(start, end, search_str.begin(), search_str.end());
                 if (pos == end) { break; }
-                auto result = callback(file, buf_file_offset + pos - buf.data(), ++found_count);
+                auto result = callback(file, buf_file_offset + (pos - buf.data()), ++found_count);
                 if (result != ProcessResult::ok) { return {result, found_count}; }
                 if (found_count == max_count) { return {ProcessResult::ok, found_count}; };
                 start = pos + 1;
@@ -75,14 +75,14 @@ std::pair<ProcessResult, long long> find_in_file(std::function<ProcessResult(std
             long long read_size = std::min(buf_size - tail_size, read_offset - start_offset);
             read_offset -= read_size;
             if (!file.seekg(read_offset)) { return {ProcessResult::seek_error, found_count}; }
-            auto start = buf.data() + buf_size - tail_size - read_size;
+            auto start = buf.data() + (buf_size - tail_size - read_size);
             if (!file.read(start, read_size) || file.gcount() != read_size) { return {ProcessResult::read_error, found_count}; }
             // Ищем
-            auto end = start + read_size + tail_size;
+            auto end = start + (read_size + tail_size);
             while (true) {
                 auto pos = std::find_end(start, end, search_str.begin(), search_str.end());
                 if (pos == end) { break; }
-                auto result = callback(file, read_offset + pos - start, ++found_count);
+                auto result = callback(file, read_offset + (pos - start), ++found_count);
                 if (result != ProcessResult::ok) { return {result, found_count}; }
                 if (found_count == max_count) { return {ProcessResult::ok, found_count}; };
                 end = pos + search_str.size() - 1;

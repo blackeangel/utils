@@ -1,4 +1,4 @@
-﻿#!/bin/bash
+#!/bin/bash
 home_dir=$(dirname $HOME)
 path_ndk="$home_dir/android-ndk"
 path_sdk="$home_dir/android-sdk"

@@ -1,4 +1,4 @@
-﻿#include "main.hpp"
+#include "main.hpp"
 
 // Помощь по параметрам командной строки
 void HexPatch::show_help()
