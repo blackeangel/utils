@@ -62,6 +62,7 @@ ParseResult Foffset::parse_cmd_line(int argc, char* argv[])
 // Искать строку в файле
 ProcessResult Foffset::process()
 {
+std::cerr << "[0]\n";
     // Режим вывода чисел
     if (hex_offsets) {
         std::cout << std::hex;
@@ -71,6 +72,7 @@ ProcessResult Foffset::process()
     auto result = find_in_file(
         [&](std::fstream& file, long long offset, long long number)
         {
+std::cerr << "[1]\n";
             if (number > 1) { std::cout << sep_char; }
             if (hex_offsets && hex_prefix) { std::cout << "0x"; }
             std::cout << offset;
@@ -80,5 +82,6 @@ ProcessResult Foffset::process()
     if (result.first == ProcessResult::ok && show_stat) {
         std::cout << "Offsets found: " << std::dec << result.second << '\n';
     }
+std::cerr << "[2:" << int(result.first) << "]\n";
     return result.first;
 }

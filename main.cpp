@@ -50,6 +50,9 @@ where function is:
       way = 0 - first find from begin file, by default
       way = 1 - all finds in file
       way = -1 - reverse first find, from end file
+
+  kerver <kernel file>
+        kernel file may be compressed to gzip
 )***";
 
 std::unique_ptr<UtilBase> make_object(const char* name)
@@ -78,11 +81,15 @@ std::unique_ptr<UtilBase> make_object(const char* name)
     if (name == "hexpatch"sv) {
         return std::make_unique<HexPatch>();
     }
+    if (name == "kerver"sv) {
+        return std::make_unique<KerVer>();
+    }
     return nullptr;
 }
 
 int main(int argc, char* argv[])
 {
+//std::cout << sizeof(long long) << std::endl;
     // Парсинг названия функции или помощи функции
     if (argc < 2 || argv[1] == "help"sv) {
         std::unique_ptr<UtilBase> obj = nullptr;

@@ -17,6 +17,7 @@
 #include <iterator>
 #include <memory>
 #include <functional>
+#include "./zlib/zlib.h"
 
 using namespace std::string_view_literals;
 
@@ -223,6 +224,21 @@ private:
     std::vector<char> what_find;
     std::vector<char> what_replace;
     int way = 0;
+};
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+class KerVer : public UtilBase
+{
+public:
+    // Помощь по параметрам командной строки
+    void show_help() override;
+    // Парсить командную строку
+    ParseResult parse_cmd_line(int argc, char* argv[]) override;
+    // Искать строку в файле
+    ProcessResult process() override;
+
+private:
+    std::filesystem::path kernelFile;
 };
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
