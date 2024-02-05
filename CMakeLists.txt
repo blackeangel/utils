@@ -6,6 +6,20 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
 set(BUILD_SHARED_LIBS OFF)
 set(CMAKE_EXE_LINKER_FLAGS "-static")
-find_package(ZLIB)
+# set(ZLIB_Dir "${CMAKE_CURRENT_SOURCE_DIR}/zlib")
+# find_package(ZLIB)
+# target_link_libraries(utils ZLIB::ZLIB)
+#include_directories(include/zlib include/zlib)
 
-add_executable(utils main.cpp copy.cpp cut.cpp delgaaps.cpp foffset.cpp insert.cpp sdat2img.cpp utils.cpp writekey.cpp hexpatch.cpp kerver.cpp)
+#add_executable(utils main.cpp copy.cpp cut.cpp delgaaps.cpp foffset.cpp insert.cpp sdat2img.cpp utils.cpp writekey.cpp hexpatch.cpp kerver.cpp)
+include_directories(
+        ${PROJECT_SOURCE_DIR}/include
+        ${PROJECT_SOURCE_DIR}/include/zlib
+        ${PROJECT_SOURCE_DIR}/src
+)
+file(GLOB SRCS
+        "${PROJECT_SOURCE_DIR}/include/*"
+        "${PROJECT_SOURCE_DIR}/include/zlib/*"
+        "${PROJECT_SOURCE_DIR}/src/*"
+)
+add_executable(utils ${SRCS})

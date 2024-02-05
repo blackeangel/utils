@@ -1,9 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="Encoding">
-    <file url="file://$PROJECT_DIR$/copy.cpp" charset="windows-1251" />
-    <file url="file://$PROJECT_DIR$/cut.cpp" charset="windows-1251" />
-    <file url="file://$PROJECT_DIR$/delgaaps.cpp" charset="windows-1251" />
-    <file url="file://$PROJECT_DIR$/sdat2img.cpp" charset="windows-1251" />
+    <file url="file://$PROJECT_DIR$/src/copy.cpp" charset="windows-1251" />
+    <file url="file://$PROJECT_DIR$/src/copy.cpp" charset="windows-1251" />
+    <file url="file://$PROJECT_DIR$/src/cut.cpp" charset="windows-1251" />
+    <file url="file://$PROJECT_DIR$/src/cut.cpp" charset="windows-1251" />
+    <file url="file://$PROJECT_DIR$/src/delgaaps.cpp" charset="windows-1251" />
+    <file url="file://$PROJECT_DIR$/src/delgaaps.cpp" charset="windows-1251" />
+    <file url="file://$PROJECT_DIR$/src/sdat2img.cpp" charset="windows-1251" />
+    <file url="file://$PROJECT_DIR$/src/sdat2img.cpp" charset="windows-1251" />
   </component>
 </project>

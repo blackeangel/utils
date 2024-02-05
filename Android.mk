@@ -10,7 +10,7 @@ LOCAL_MODULE := bin_utils
 
 LOCAL_C_INCLUDES :=
 
-LOCAL_CXXFLAGS := -fexceptions -std=c++2a -O3
+LOCAL_CXXFLAGS := -fexceptions -std=c++2a -O2
 
 LOCAL_LDFLAGS := -fPIE -static -ldl
 
