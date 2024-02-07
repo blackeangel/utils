@@ -1,5 +1,38 @@
 LOCAL_PATH := $(call my-dir)
 
+##############################################################################
+# libz
+##############################################################################
+include $(CLEAR_VARS)
+
+LOCAL_MODULE := libz
+
+LOCAL_CFLAGS := \
+    -DHAVE_HIDDEN \
+    -DZLIB_CONST
+
+LOCAL_C_INCLUDES := \
+    src/zlib
+
+LOCAL_SRC_FILES += \
+    src/zlib/adler32.c \
+    src/zlib/compress.c \
+    src/zlib/crc32.c \
+    src//zlib/deflate.c \
+    src/zlib/gzclose.c \
+    src/zlib/gzlib.c \
+    src//zlib/gzread.c \
+    src/zlib/gzwrite.c \
+    src/zlib/infback.c \
+    src/zlib/inffast.c \
+    src/zlib/inflate.c \
+    src/zlib/inftrees.c \
+    src/zlib/trees.c \
+    src/zlib/uncompr.c \
+    src/zlib/zutil.c
+
+include $(BUILD_STATIC_LIBRARY)
+
 #####################################################################################
 #utils
 #####################################################################################
@@ -8,23 +41,17 @@ include $(CLEAR_VARS)
 
 LOCAL_MODULE := bin_utils
 
-LOCAL_C_INCLUDES :=
+LOCAL_C_INCLUDES := \
+	includes \
+	src/zlib
 
 LOCAL_CXXFLAGS := -fexceptions -std=c++2a -O2
 
 LOCAL_LDFLAGS := -fPIE -static -ldl
 
-#LOCAL_SRC_FILES := main.cpp copy.cpp cut.cpp delgaaps.cpp foffset.cpp insert.cpp sdat2img.cpp utils.cpp writekey.cpp hexpatch.cpp kerver.cpp
-#traverse all the directory and subdirectory
-define walk
-  $(wildcard $(1)) $(foreach e, $(wildcard $(1)/*), $(call walk, $(e)))
-endef
+LOCAL_SRC_FILES := $(wildcard src/*.cpp)
 
-#find all the file recursively under jni/
-ALLFILES = $(call walk, $(LOCAL_PATH))
-FILE_LIST := $(filter %.cpp, %.c, $(ALLFILES))
-
-LOCAL_SRC_FILES := $(FILE_LIST:$(LOCAL_PATH)/%=%)
+LOCAL_STATIC_LIBRARIES := z
 
 include $(BUILD_EXECUTABLE)
 

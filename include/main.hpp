@@ -17,7 +17,7 @@
 #include <iterator>
 #include <memory>
 #include <functional>
-#include "zlib/zlib.h"
+#include "../src/zlib/zlib.h"
 
 using namespace std::string_view_literals;
 
