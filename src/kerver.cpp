@@ -2,6 +2,7 @@
 
 // Цвета для вывода
 #ifdef _WIN32
+
     const std::string RED = "\x1B[31m";
     const std::string GREEN = "\x1B[32m";
     const std::string YELLOW = "\x1B[33m";
@@ -34,8 +35,8 @@ Usage:
 // Парсить командную строку
 ParseResult KerVer::parse_cmd_line(int argc, char* argv[])
 {
-    if(argc != 2){show_help();}
-    kernelFile = argv[1];
+    if(argc != 1){show_help();}
+    kernelFile = argv[0];
     return ParseResult::ok;
 }
 
@@ -176,7 +177,7 @@ void processFile(const std::string& filePath) {
 
     // Если результат не пуст, выводим его
     if (!linuxVersion.empty()) {
-        std::cout << GREEN << "Linux version found: " << linuxVersion << RESET << std::endl;
+        std::cout << GREEN << "Linux version: " << linuxVersion << RESET << std::endl;
         // Поиск сразу нескольких значений и определение битности ядра
         findArchitectureAndBitness(data);
         return;
@@ -200,7 +201,7 @@ void processFile(const std::string& filePath) {
 
     // Вывод результатов
     if (!result.empty()) {
-        std::cout << GREEN << "Result: " << result << RESET << std::endl;
+        std::cout << GREEN << "Linux version: " << result << RESET << std::endl;
     } else {
         std::cerr << RED << "No Linux version found." << RESET << std::endl;
     }
