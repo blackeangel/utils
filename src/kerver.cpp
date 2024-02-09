@@ -1,27 +1,5 @@
 #include "../include/main.hpp"
 
-// Цвета для вывода
-#ifdef _WIN32
-
-    const std::string RED = "\x1B[31m";
-    const std::string GREEN = "\x1B[32m";
-    const std::string YELLOW = "\x1B[33m";
-    const std::string BLUE = "\x1B[34m";
-    const std::string MAGENTA = "\x1B[35m";
-    const std::string CYAN = "\x1B[36m";
-    const std::string WHITE = "\x1B[37m";
-    const std::string RESET = "\x1B[0m";
-#else
-    const std::string RED = "\033[1;31m";
-    const std::string GREEN = "\033[1;32m";
-    const std::string YELLOW = "\033[1;33m";
-    const std::string BLUE = "\033[1;34m";
-    const std::string MAGENTA = "\033[1;35m";
-    const std::string CYAN = "\033[1;36m";
-    const std::string WHITE = "\033[1;37m";
-    const std::string RESET = "\033[0m";
-#endif
-
 // Помощь по параметрам командной строки
 void KerVer::show_help()
 {
@@ -45,7 +23,7 @@ ParseResult KerVer::parse_cmd_line(int argc, char* argv[])
 bool checkFileSize(const std::string& filePath) {
     std::ifstream file(filePath, std::ios::binary | std::ios::ate);
     if (!file.is_open()) {
-        std::cerr << RED << "Error: Unable to open file: " << filePath << RESET << std::endl;
+        std::cerr << "Error: Unable to open file: " << filePath << std::endl;
         return false;
     }
 
@@ -53,7 +31,7 @@ bool checkFileSize(const std::string& filePath) {
     const std::streampos oneGB = 1e9;
 
     if (fileSize >= oneGB) {
-        std::cerr << RED << "Error: File size is greater than or equal to 1 GB." << RESET << std::endl;
+        std::cerr << "Error: File size is greater than or equal to 1 GB." << std::endl;
         return false;
     }
 
@@ -75,7 +53,7 @@ std::streampos findGzipHeader(const std::vector<char>& data) {
 // Функция для чтения данных от смещения до конца файла
 std::vector<char> readFromOffset(const std::vector<char>& data, std::streampos offset) {
     if (offset == -1) {
-        std::cerr << RED << "Error: Offset not found." << RESET << std::endl;
+        std::cerr << "Error: Offset not found." << std::endl;
         return {};
     }
 
@@ -93,7 +71,7 @@ std::vector<char> decompressData(const std::vector<char>& data) {
 
     // Используем deflateInit2 с параметрами 16 + MAX_WBITS для обработки gzip
     if (inflateInit2(&stream, 16 + MAX_WBITS) != Z_OK) {
-        std::cerr << RED << "Error: Failed to initialize zlib." << RESET << std::endl;
+        std::cerr << "Error: Failed to initialize zlib." << std::endl;
         return {};
     }
 
@@ -146,14 +124,14 @@ void findArchitectureAndBitness(const std::vector<char>& data) {
         auto it = std::search(data.begin(), data.end(), target.begin(), target.end());
         if (it != data.end()) {
             if (target.find("arm64") != std::string::npos) {
-                std::cout << GREEN << "Architecture: 64 bit" << RESET << std::endl;
+                std::cout << "Architecture: 64 bit" << std::endl;
             } else if (target.find("arm") != std::string::npos) {
-                std::cout << GREEN << "Architecture: 32 bit" << RESET << std::endl;
+                std::cout << "Architecture: 32 bit" << std::endl;
             }
             return;
         }
     }
-    std::cerr << RED << "Architecture not found." << RESET << std::endl;
+    std::cerr << "Architecture not found." << std::endl;
 }
 
 // Главная функция, объединяющая остальные шаги
@@ -166,7 +144,7 @@ void processFile(const std::string& filePath) {
     // Чтение файла в память
     std::ifstream file(filePath, std::ios::binary);
     if (!file.is_open()) {
-        std::cerr << RED << "Error: Unable to open file: " << filePath << RESET << std::endl;
+        std::cerr << "Error: Unable to open file: " << filePath << std::endl;
         return;
     }
 
@@ -177,7 +155,7 @@ void processFile(const std::string& filePath) {
 
     // Если результат не пуст, выводим его
     if (!linuxVersion.empty()) {
-        std::cout << GREEN << "Linux version: " << linuxVersion << RESET << std::endl;
+        std::cout << "Linux version: " << linuxVersion << std::endl;
         // Поиск сразу нескольких значений и определение битности ядра
         findArchitectureAndBitness(data);
         return;
@@ -185,7 +163,7 @@ void processFile(const std::string& filePath) {
 
     // Поиск заголовка gzip архива и вывод смещения
     std::streampos gzipOffset = findGzipHeader(data);
-    std::cout << GREEN << "Gzip header found at offset: " << gzipOffset  << RESET << std::endl;
+    std::cout << "Gzip header found at offset: " << gzipOffset  << std::endl;
 
     // Чтение данных от смещения до конца файла
     std::vector<char> readData = readFromOffset(data, gzipOffset);
@@ -201,9 +179,9 @@ void processFile(const std::string& filePath) {
 
     // Вывод результатов
     if (!result.empty()) {
-        std::cout << GREEN << "Linux version: " << result << RESET << std::endl;
+        std::cout << "Linux version: " << result << std::endl;
     } else {
-        std::cerr << RED << "No Linux version found." << RESET << std::endl;
+        std::cerr << "No Linux version found." << std::endl;
     }
 }
 
