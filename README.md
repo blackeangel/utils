@@ -55,4 +55,20 @@ hexpatch <file> <what_find in hex> <what_replace in hex> <way>
 
 kerver <kernel file>
     kernel file may be compressed to gzip
+    
+fstab_fix <directory1> <directory2> ...
+    fix RO to RW in fstab files
+
+shared_block_detector <file>
+    detect shared_blocks in sparse ext4 and raw ext4 files
+
+file_explorer [directory] [options] [filters]
+    Explore files and directories in the specified directory."
+                 Options:
+                 -d    Show only directories, ignoring filters.
+                 -f    Show only files, applying filters.
+                 Filters:
+                 By default, the following filters are applied to files: .img, .dat, .br, .list.
+                 Additional filters can be specified after the directory path.
+                 "Example: file_explorer /path/to/directory .txt .pdf
 ```
