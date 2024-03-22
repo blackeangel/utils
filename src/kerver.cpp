@@ -4,6 +4,8 @@
 void KerVer::show_help()
 {
     fprintf(stderr, R"EOF(
+kerver
+
 Usage:
 
     kerver <file>)EOF");
@@ -13,7 +15,10 @@ Usage:
 // Парсить командную строку
 ParseResult KerVer::parse_cmd_line(int argc, char* argv[])
 {
-    if(argc != 1){show_help();}
+    if(argc < 1) {
+        show_help();
+        return ParseResult::wrong_option;
+    }
     kernelFile = argv[0];
     return ParseResult::ok;
 }

@@ -4,7 +4,10 @@
 void Foffset::show_help()
 {
     std::cout <<
-R"***(Usage:
+R"***(
+foffset
+
+Usage:
   utils foffset file hexstring [option...]
 where option is:
   -s offset - start offset (DEC or 0xHEX), negative value for offset from end of file

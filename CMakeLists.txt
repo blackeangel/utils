@@ -26,10 +26,16 @@ include_directories(
         ${PROJECT_SOURCE_DIR}/include
         ${PROJECT_SOURCE_DIR}/src
         ${PROJECT_SOURCE_DIR}/src/zlib
+        #${PROJECT_SOURCE_DIR}/src/openssl
+        #${PROJECT_SOURCE_DIR}/src/e2fsdroid
+        #${PROJECT_SOURCE_DIR}/src/e2fsdroid/ext2fs
 )
 file(GLOB SRCS
         "${PROJECT_SOURCE_DIR}/include/*"
         "${PROJECT_SOURCE_DIR}/src/*"
         "${PROJECT_SOURCE_DIR}/src/zlib/*"
+        #"${PROJECT_SOURCE_DIR}/src/openssl/*"
+       # "${PROJECT_SOURCE_DIR}/src/e2fsdroid/*"
+       # "${PROJECT_SOURCE_DIR}/src/e2fsdroid/ext2fs/*"
 )
 add_executable(utils ${SRCS})

@@ -4,7 +4,10 @@
 void HexPatch::show_help()
 {
     std::cout <<
-R"***(Usage:
+R"***(
+hexpatch
+
+Usage:
   utils hexpatch <file> <hexstring_to_find> <hexstring_to_replace> <way>
 where way is:
   0 - first find from begin file, by default

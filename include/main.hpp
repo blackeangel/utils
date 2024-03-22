@@ -17,7 +17,10 @@
 #include <iterator>
 #include <memory>
 #include <functional>
+#include <unordered_set>
 #include "../src/zlib/zlib.h"
+#include "e2fsdroid/ext2fs/ext2_fs.h" // Для работы с ext4
+#include "sparse/src/sparse_format.h" // Для работы с Android sparse
 
 using namespace std::string_view_literals;
 
@@ -45,6 +48,14 @@ enum class ProcessResult
     ok            // успешно
 };
 
+// Результат работы функции
+enum class UpdateResult
+{
+    ok,
+    openError,
+    createError,
+    writeError
+};
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 class UtilBase
@@ -242,7 +253,50 @@ private:
 };
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+class FstabFix : public UtilBase
+{
+public:
+    // Помощь по параметрам командной строки
+    void show_help() override;
+    // Парсить командную строку
+    ParseResult parse_cmd_line(int argc, char* argv[]) override;
+    ProcessResult process() override;
 
+private:
+    std::vector<std::string> directories;
+};
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+class SharedBlockDetector : public UtilBase
+{
+public:
+    // Помощь по параметрам командной строки
+    void show_help() override;
+    // Парсить командную строку
+    ParseResult parse_cmd_line(int argc, char* argv[]) override;
+
+    ProcessResult process() override;
+
+private:
+    std::filesystem::path filename;
+};
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+class FileExplorer : public UtilBase
+{
+public:
+    // Помощь по параметрам командной строки
+    void show_help() override;
+    // Парсить командную строку
+    ParseResult parse_cmd_line(int argc, char* argv[]) override;
+
+    ProcessResult process() override;
+
+private:
+    std::filesystem::path initial_directory = "/sdcard";
+    std::vector<std::string> filters = {".img", ".dat", ".br", ".list"};
+    bool showFiles = true;
+    bool showDirectories = true;
+};
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Поиск строки (вектора символов) search_str в файле filename и вызов функции callback для каждого вхождения.
 // Возвращает результат операции (в т.ч. возвращаемый функцией callback) и кол-во найденных вхождений.
 // read_only - открыть только для чтения (true, если не предполагается замена), forward - направление (true - вперёд),
