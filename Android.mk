@@ -12,13 +12,14 @@ LOCAL_CFLAGS := \
     -DZLIB_CONST
 
 LOCAL_C_INCLUDES := \
-    src/zlib
+    src/zlib  \
+    src/e2fsdroid/ext2fs
 
 LOCAL_SRC_FILES += \
     src/zlib/adler32.c \
     src/zlib/compress.c \
     src/zlib/crc32.c \
-    src//zlib/deflate.c \
+    src/zlib/deflate.c \
     src/zlib/gzclose.c \
     src/zlib/gzlib.c \
     src//zlib/gzread.c \
@@ -43,7 +44,8 @@ LOCAL_MODULE := bin_utils
 
 LOCAL_C_INCLUDES := \
 	includes \
-	src/zlib
+	src/zlib \
+    src/e2fsdroid/ext2fs
 
 LOCAL_CXXFLAGS := -fexceptions -std=c++2a -O2
 

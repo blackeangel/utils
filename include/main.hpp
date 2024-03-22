@@ -19,8 +19,8 @@
 #include <functional>
 #include <unordered_set>
 #include "../src/zlib/zlib.h"
-#include "e2fsdroid/ext2fs/ext2_fs.h" // Для работы с ext4
-#include "sparse/src/sparse_format.h" // Для работы с Android sparse
+#include "../src/e2fsdroid/ext2fs/ext2_fs.h" // Для работы с ext4
+#include "../src/sparse/src/sparse_format.h" // Для работы с Android sparse
 
 using namespace std::string_view_literals;
 
@@ -68,7 +68,7 @@ public:
     // Основная работа
     virtual ProcessResult process() = 0;
     // Виртуальный деструктор
-    virtual ~UtilBase() {}
+    virtual ~UtilBase() = default;
 };
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
