@@ -16,6 +16,7 @@
 #include <chrono>
 #include <iterator>
 #include <memory>
+#include <stack>
 #include <functional>
 #include <unordered_set>
 #include "../src/zlib/zlib.h"

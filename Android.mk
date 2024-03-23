@@ -51,7 +51,8 @@ LOCAL_CXXFLAGS := -fexceptions -std=c++2a -O2
 
 LOCAL_LDFLAGS := -fPIE -static -ldl
 
-LOCAL_SRC_FILES := $(wildcard src/*.cpp)
+LOCAL_SRC_FILES := $(wildcard src/*.cpp) \
+					$(wildcard src/*.cxx)
 
 LOCAL_STATIC_LIBRARIES := z
 
