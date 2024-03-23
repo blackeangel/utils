@@ -19,7 +19,7 @@ bool is_ext4(const std::vector<char>& buffer) {
     if (superblock->s_magic == EXT2_SUPER_MAGIC) {
         // Проверяем наличие флага поддержки shared blocks
         if (superblock->s_feature_ro_compat & EXT4_FEATURE_RO_COMPAT_SHARED_BLOCKS) {
-            std::cout << "Shared blocks feature is supported in ext4 format." << std::endl;
+            std::cout << "true" << std::endl;
             return true;
         }
     }
@@ -39,7 +39,7 @@ bool is_sparse(const std::vector<char>& buffer) {
     for (size_t i = 0; i < buffer.size() - sizeof(uint32_t); ++i) {
         const uint32_t* magic = reinterpret_cast<const uint32_t*>(&buffer[i]);
         if (*magic == SPARSE_HEADER_MAGIC) {
-            std::cout << "Android sparse format detected." << std::endl;
+            //std::cout << "Android sparse format detected." << std::endl;
             return true;
         }
     }
@@ -57,7 +57,7 @@ bool is_sparse_ext4(const std::vector<char>& buffer) {
     for (size_t i = 0; i < buffer.size() - sizeof(uint32_t); ++i) {
         const ext2_super_block* superblock = reinterpret_cast<const ext2_super_block*>(&buffer[i]);
         if (superblock->s_magic == EXT2_SUPER_MAGIC) {
-            std::cout << "EXT4 format detected." << std::endl;
+            //std::cout << "EXT4 format detected." << std::endl;
             ext4_header_pos = i;
             ext4_found = true;
             break;
@@ -78,7 +78,7 @@ bool is_sparse_ext4(const std::vector<char>& buffer) {
         if (superblock->s_magic == EXT2_SUPER_MAGIC) {
             // Проверяем наличие флага shared blocks
             if (superblock->s_feature_ro_compat & EXT4_FEATURE_RO_COMPAT_SHARED_BLOCKS) {
-                std::cout << "Shared blocks found in sparse ext4 format." << std::endl;
+                std::cout << "true" << std::endl;
                 return true;
             }
         }
@@ -122,7 +122,7 @@ ProcessResult SharedBlockDetector::process()
     }
 
     // Если не найдены shared blocks
-    std::cout << "No shared blocks found." << std::endl;
+    std::cout << "false" << std::endl;
     file.close();
     return ProcessResult::breaked;
 }
