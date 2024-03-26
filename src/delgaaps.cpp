@@ -12,18 +12,95 @@ Usage:
         Where:
         <folder> - path to the folder where the image was unpacked
         <file_list> - a file with a list to remove gapps and more
+            if <file_list> is not specified it will be used by default
         For example:
         delgaaps "/sdcard/Unpacker" "/sdcard/gappslist.txt"
+
 )EOF");
     fprintf(stderr, "\n");
 }
-
+void default_file_list(std::filesystem::path path){
+    std::vector<std::string> standart_list = {
+            "AnalyticsCore",
+            "BasicDreams",
+            "BookmarkProvider",
+            "CloudService",
+            "EasterEgg",
+            "facebook-appmanager",
+            "Joyose",
+            "LiveWallpapersPicker",
+            "MiCloudSync",
+            "MiConnectService",
+            "MIDrop",
+            "miui",
+            "MiuiBugReport",
+            "MIUIHealthGlobal",
+            "MIUIMiPicks",
+            "MIUINotes",
+            "MIUISystemAppUpdater",
+            "PaymentService",
+            "Stk",
+            "Updater",
+            "XiaomiAccount",
+            "XiaomiSimActivateService",
+            "XMRemoteController",
+            "CloudBackup",
+            "facebook-installer",
+            "facebook-services",
+            "FindDevice",
+            "MIService",
+            "MIShareGlobal",
+            "MIUIGlobalMinusScreenWidget",
+            "MIUIWeatherGlobal",
+            "MIUIYellowPageGlobal",
+            "Tag",
+            "GoogleOne",
+            "GooglePay",
+            "Gmail2",
+            "Chrome",
+            "Maps",
+            "PhotoTable",
+            "SpeechServicesByGoogle",
+            "talkback",
+            "YouTube",
+            "wps_lite",
+            "AndroidAutoStub",
+            "GoogleAssistant",
+            "HotwordEnrollmentXGoogleHEXAGON",
+            "HotwordEnrollmentOKGoogleHEXAGON",
+            "Turbo",
+            "Velvet",
+            "Wellbeing",
+            "MipayService",
+            "GoogleFeedback",
+            "MiGameCenterGlobal"
+    };
+    if (std::filesystem::exists(path))
+    {
+        //write vector to file -->
+        std::fstream config(path, std::ios::out);
+        std::copy(standart_list.begin(), standart_list.end(), std::ostream_iterator<std::string>(config, "\n"));
+        //write vector to file <--
+    }
+}
 // Парсить командную строку
 ParseResult DelGapps::parse_cmd_line(int argc, char* argv[])
 {
-    if(argc != 2){show_help();}
-    folder_path = argv[0];
-    file_path = argv[1];
+    if(argc < 1 || argc > 2 ){show_help();}
+    if(argc == 2){
+        folder_path = argv[0];
+        file_path = argv[1];
+    }
+    if(argc == 1){
+        folder_path = argv[0];
+        if(std::filesystem::exists("/sdcard")){
+           default_list = "/sdcard/default_list.txt";
+        }else{
+            default_list = "./default_list.txt";
+        }
+        default_file_list(default_list);
+        file_path = default_list;
+    }
     return ParseResult::ok;
 }
 
@@ -41,8 +118,8 @@ ProcessResult DelGapps::process()
     }
     if (!std::filesystem::exists(file_path))
     {
-        std::cout << file_path << " not found!" << std::endl;
-        exit(2);
+        std::cout << file_path << " not found! Used default list" << std::endl;
+        //exit(2);
     }
 
     std::string config_path;
@@ -111,7 +188,7 @@ ProcessResult DelGapps::process()
     }
     std::copy(del_list.begin(), del_list.end(), std::ostream_iterator<std::string>(std::cout, "\n"));
 
-    std::cout << "\nAre you sure you want to delete these files/folders? Yes or No" << std::endl;
+    std::cout << "\nAre you sure you want to delete these files/folders?(Yes or No)" << std::endl;
     std::string answer;
     std::cin >> answer;
     if (answer == "y" || answer == "yes" || answer == "Y" || answer == "Yes")
