@@ -13,7 +13,7 @@ Usage:
 // Функция для определения, является ли файл форматом ext4
 bool is_ext4(const std::vector<char>& buffer) {
     // Приводим буфер к типу ext2_super_block, чтобы можно было обращаться к полям
-    const ext2_super_block* superblock = reinterpret_cast<const ext2_super_block*>(buffer.data() + 1024);
+    const auto* superblock = reinterpret_cast<const ext2_super_block*>(buffer.data() + 1024);
 
     // Проверяем сигнатуру ext4
     if (superblock->s_magic == EXT2_SUPER_MAGIC) {
@@ -26,25 +26,51 @@ bool is_ext4(const std::vector<char>& buffer) {
 
     return false;
 }
+bool is_erofs(const std::vector<char>& buffer) {
+    // Приводим буфер к типу erofs_super_block, чтобы можно было обращаться к полям
+    const auto* superblock = reinterpret_cast<const erofs_super_block*>(buffer.data() + EROFS_SUPER_OFFSET);
+    if (superblock->magic == EROFS_SUPER_MAGIC_V1) {
+        std::cout << "erofs" << std::endl;
+        return true;
+    }
+    return false;
+}
+
+bool is_boot(const std::vector<char>& buffer) {
+    // Приводим буфер к типу boot_img_hdr, чтобы можно было обращаться к полям
+    const auto * superblock = reinterpret_cast<const boot_img_hdr *>(buffer.data());
+    std::string temp(reinterpret_cast<char const*>(superblock->magic), sizeof superblock->magic);
+    if (temp == BOOT_MAGIC || temp == VENDOR_BOOT_MAGIC) {
+        return true;
+    }
+    return false;
+}
 
 // Функция для определения, является ли файл форматом Android sparse
 bool is_sparse(const std::vector<char>& buffer) {
-    uint32_t sparse_offset = 0;
 
-    if (buffer.size() < sizeof(uint32_t)) {
+    /*if (buffer.size() < sizeof(uint32_t)) {
         std::cerr << "Error: Buffer size is too small." << std::endl;
         return false;
     }
 
     for (size_t i = 0; i < buffer.size() - sizeof(uint32_t); ++i) {
-        const uint32_t* magic = reinterpret_cast<const uint32_t*>(&buffer[i]);
+        const auto* magic = reinterpret_cast<const uint32_t*>(&buffer[i]);
         if (*magic == SPARSE_HEADER_MAGIC) {
             //std::cout << "Android sparse format detected." << std::endl;
             return true;
         }
     }
 
+    return false;*/
+
+    // Приводим буфер к типу sparse_header, чтобы можно было обращаться к полям
+    const auto * superblock = reinterpret_cast<const sparse_header *>(buffer.data());
+    if (superblock->magic == SPARSE_HEADER_MAGIC) {
+        return true;
+    }
     return false;
+
 }
 
 // Функция для определения, является ли файл форматом sparse ext4
@@ -55,7 +81,7 @@ bool is_sparse_ext4(const std::vector<char>& buffer) {
 
     // Поиск сигнатуры файловой системы ext4
     for (size_t i = 0; i < buffer.size() - sizeof(uint32_t); ++i) {
-        const ext2_super_block* superblock = reinterpret_cast<const ext2_super_block*>(&buffer[i]);
+        const auto* superblock = reinterpret_cast<const ext2_super_block*>(&buffer[i]);
         if (superblock->s_magic == EXT2_SUPER_MAGIC) {
             //std::cout << "EXT4 format detected." << std::endl;
             ext4_header_pos = i;
@@ -72,7 +98,7 @@ bool is_sparse_ext4(const std::vector<char>& buffer) {
             return false;
         }
         // Перемещаемся к месту, где должен быть заголовок ext4
-        const ext2_super_block* superblock = reinterpret_cast<const ext2_super_block*>(buffer.data() + offset);
+        const auto* superblock = reinterpret_cast<const ext2_super_block*>(buffer.data() + offset);
 
         // Проверяем, соответствует ли заголовок ext4
         if (superblock->s_magic == EXT2_SUPER_MAGIC) {
@@ -108,6 +134,17 @@ ProcessResult SharedBlockDetector::process()
     std::vector<char> buffer(4194304);
     file.read(buffer.data(), 4194304);
     file.close();
+
+    // Проверка на формат boot
+    if(is_boot(buffer)){
+        return ProcessResult::ok;
+    }
+
+    // Проверка на формат erofs
+    if(is_erofs(buffer)){
+        return ProcessResult::ok;
+    }
+
     // Проверка на формат sparse
     if (is_sparse(buffer)) {
         // Проверка на формат sparse ext4
