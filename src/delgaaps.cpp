@@ -19,7 +19,7 @@ Usage:
 )EOF");
     fprintf(stderr, "\n");
 }
-void default_file_list(std::filesystem::path path){
+void default_file_list(const std::filesystem::path& path){
     std::vector<std::string> standart_list = {
             "AnalyticsCore",
             "BasicDreams",
@@ -129,20 +129,21 @@ ProcessResult DelGapps::process()
     std::string gaapslist_file(file_path.string());
     std::vector<std::string> gaapslist = readlines(gaapslist_file);
     std::vector<std::string> del_list;
+    std::filesystem::path tmppath;
 
     //analize root dir -->
     std::vector<std::string> root_dir_list = list_dir(folder_path);
     auto config_iter = std::find(root_dir_list.begin(), root_dir_list.end(), "config");
     if (config_iter != root_dir_list.end())
     {
-        std::filesystem::path tmppath = folder_path;
+        tmppath = folder_path;
         tmppath /= *config_iter;
         config_path = tmppath.string();
         root_dir_list.erase(config_iter);
 
         for (auto &&root_dir : root_dir_list)
         {
-            std::filesystem::path tmppath = config_path;
+            tmppath = config_path;
             tmppath /= root_dir;
             tmppath /= root_dir + "_fs_config";
             config_file = tmppath.string();
@@ -156,7 +157,7 @@ ProcessResult DelGapps::process()
                   << std::endl;
         for (auto &&root_dir : root_dir_list)
         {
-            std::filesystem::path tmppath = folder_path;
+            tmppath = folder_path;
             tmppath /= root_dir;
             root_dir = tmppath.string();
         }
@@ -164,24 +165,23 @@ ProcessResult DelGapps::process()
     }
     //analize root dir <--
     std::vector<std::string> name_img_clone = name_img;
-    std::regex reg(" \\d{1,4} \\d{1,4} \\d{1,4}( .*)?", std::regex_constants::optimize | std::regex_constants::ECMAScript);
-    for (int i = 0; i < name_img_clone.size(); i++)
+    std::regex reg(R"( \d{1,4} \d{1,4} \d{1,4}( .*)?)", std::regex_constants::optimize | std::regex_constants::ECMAScript);
+    for (auto & i : name_img_clone)
     {
-        name_img_clone[i] = regex_replace(name_img_clone[i], reg, "");
+        i = regex_replace(i, reg, "");
     }
     int pos;
-    for (int i = 0; i < name_img_clone.size(); i++)
+    for (const auto & i : name_img_clone)
     {
-        std::string s1 = name_img_clone[i];
+        std::string s1 = i;
         std::transform(s1.begin(), s1.end(), s1.begin(), ::tolower);
-        for (int j = 0; j < gaapslist.size(); j++)
+        for (auto s2 : gaapslist)
         {
-            std::string s2 = gaapslist[j];
             std::transform(s2.begin(), s2.end(), s2.begin(), ::tolower);
             pos = s1.find(s2, 0);
             if (pos != std::string::npos)
             {
-                del_list.push_back(name_img_clone[i]);
+                del_list.push_back(i);
                 break;
             }
         }
@@ -210,23 +210,23 @@ ProcessResult DelGapps::process()
                 }
             }
         }
-        if (config_path != "")
+        if (!config_path.empty())
         {
             for (auto &&root_dir : root_dir_list)
             {
-                std::filesystem::path tmppath = config_path;
+                tmppath = config_path;
                 tmppath /= root_dir;
                 tmppath /= root_dir + "_fs_config";
                 config_file = tmppath.string();
                 std::vector<std::string> tmp = readlines(config_file);
-                for (int j = 0; j < tmp.size(); j++)
+                for (auto & j : tmp)
                 {
-                    tmp[j] = regex_replace(tmp[j], reg, "");
-                    for (int k = 0; k < del_list.size(); k++)
+                    j = regex_replace(j, reg, "");
+                    for (const auto & k : del_list)
                     {
-                        if (tmp[j] == del_list[k])
+                        if (j == k)
                         {
-                            tmp[j] = "";
+                            j = "";
                         }
                     }
                 }

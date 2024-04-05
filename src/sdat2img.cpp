@@ -73,20 +73,18 @@ ProcessResult Sdat2Img::process()
     }
 
     uint8_t *data;
-    bool quiet = false;
     for (std::pair<int, int> block : all_block_sets)
     {
         long begin = block.first;
         long end = block.second;
         long block_count = end - begin;
         long blocks = block_count * BLOCK_SIZE;
-        //long long position = begin * BLOCK_SIZE;
         long long position = (long long)begin * BLOCK_SIZE;
         unsigned long offset = position % ULONG_MAX;
         int cycles = position / ULONG_MAX;
 
         data = (uint8_t *)malloc(blocks);
-        if (data == NULL)
+        if (data == nullptr)
         {
             std::cerr << "Out of memory error!" << std::endl;
             exit(-1);
@@ -109,11 +107,6 @@ ProcessResult Sdat2Img::process()
             output_img.seekp(position);
         }
 
-        if (!quiet)
-        {
-            //cout << "Copying " << block_count << " blocks into position " << begin << " with " << blocks << " bytes" << endl;
-        }
-
         output_img.write((char *)data, blocks);
         free(data);
     }
@@ -126,7 +119,7 @@ ProcessResult Sdat2Img::process()
     return ProcessResult::ok;
 }
 
-std::pair<int, std::vector<std::pair<int, int>>> Sdat2Img::parse_transfer_list_file(std::string path)
+std::pair<int, std::vector<std::pair<int, int>>> Sdat2Img::parse_transfer_list_file(const std::string& path)
 {
     std::ifstream trans_list(path);
     int version;
@@ -191,7 +184,7 @@ std::pair<int, std::vector<std::pair<int, int>>> Sdat2Img::parse_transfer_list_f
 }
 
 // Create empty image with Correct size;
-void Sdat2Img::initOutputFile(std::string output_file)
+void Sdat2Img::initOutputFile(const std::string& output_file)
 {
     std::ofstream output_file_obj(output_file, std::ios::binary);
     long long position = max_file_size - 1;

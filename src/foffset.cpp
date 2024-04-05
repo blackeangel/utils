@@ -1,10 +1,9 @@
 ﻿#include "../include/main.hpp"
 
 // Помощь по параметрам командной строки
-void Foffset::show_help()
-{
+void Foffset::show_help() {
     std::cout <<
-R"***(
+              R"***(
 foffset
 
 Usage:
@@ -26,30 +25,27 @@ hexstring digit pairs that can be separated using space, period(.), comma(,), da
 }
 
 // Парсить командную строку
-ParseResult Foffset::parse_cmd_line(int argc, char* argv[])
-{
+ParseResult Foffset::parse_cmd_line(int argc, char *argv[]) {
     if (argc < 2) { return ParseResult::not_enough; }
 
     filename = argv[0];
-    
+
     // Hexstring
     if (!parse_hexstring(argv[1], search_str)) { return ParseResult::wrong_hex; }
-    
+
     // Опции
     for (int i = 2; i < argc; ++i) {
         if (argv[i] == "-s"sv) {
             if (++i >= argc || !parse_llong(argv[i], start_offset)) { return ParseResult::wrong_option; }
-        }
-        else if (argv[i] == "-l"sv) {
-            if (++i >= argc || !parse_llong(argv[i], search_size) || search_size < 0) { return ParseResult::wrong_option; }
-        }
-        else if (argv[i] == "-n"sv) {
+        } else if (argv[i] == "-l"sv) {
+            if (++i >= argc || !parse_llong(argv[i], search_size) ||
+                search_size < 0) { return ParseResult::wrong_option; }
+        } else if (argv[i] == "-n"sv) {
             if (++i >= argc || !parse_llong(argv[i], max_count) || max_count < 1) { return ParseResult::wrong_option; }
-        }
-        else if (argv[i] == "-b"sv) {
+        } else if (argv[i] == "-b"sv) {
             if (++i >= argc || !parse_llong(argv[i], buf_size) || buf_size < 1) { return ParseResult::wrong_option; }
             buf_size *= 1024;
-            if (buf_size < (long long)search_str.size()) { return ParseResult::wrong_option; }
+            if (buf_size < (long long) search_str.size()) { return ParseResult::wrong_option; }
         } else if (argv[i] == "-r"sv) { forward = false; }
         else if (argv[i] == "-d"sv) { hex_offsets = false; }
         else if (argv[i] == "-hu"sv) { hex_uppercase = true; }
@@ -63,9 +59,8 @@ ParseResult Foffset::parse_cmd_line(int argc, char* argv[])
 }
 
 // Искать строку в файле
-ProcessResult Foffset::process()
-{
-std::cerr << "[0]\n";
+ProcessResult Foffset::process() {
+    std::cerr << "[0]\n";
     // Режим вывода чисел
     if (hex_offsets) {
         std::cout << std::hex;
@@ -73,18 +68,17 @@ std::cerr << "[0]\n";
     }
 
     auto result = find_in_file(
-        [&](std::fstream& file, long long offset, long long number)
-        {
-std::cerr << "[1]\n";
-            if (number > 1) { std::cout << sep_char; }
-            if (hex_offsets && hex_prefix) { std::cout << "0x"; }
-            std::cout << offset;
-            return ProcessResult::ok;
-        }, filename, search_str, true, forward, start_offset, search_size, max_count, buf_size);
+            [&](std::fstream &file, long long offset, long long number) {
+                std::cerr << "[1]\n";
+                if (number > 1) { std::cout << sep_char; }
+                if (hex_offsets && hex_prefix) { std::cout << "0x"; }
+                std::cout << offset;
+                return ProcessResult::ok;
+            }, filename, search_str, true, forward, start_offset, search_size, max_count, buf_size);
     if (result.second > 0) { std::cout << '\n'; }
     if (result.first == ProcessResult::ok && show_stat) {
         std::cout << "Offsets found: " << std::dec << result.second << '\n';
     }
-std::cerr << "[2:" << int(result.first) << "]\n";
+    std::cerr << "[2:" << int(result.first) << "]\n";
     return result.first;
 }

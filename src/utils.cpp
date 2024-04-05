@@ -98,6 +98,53 @@ std::pair<ProcessResult, long long> find_in_file(std::function<ProcessResult(std
     return {ProcessResult::ok, found_count};
 }
 
+// Поиск строки (вектора символов) search_str в векторе source и вызов функции callback для каждого вхождения.
+// Подробное описание см. в файле main.hpp.
+std::pair<ProcessResult, long long> find_in_vector(std::function<ProcessResult(std::vector<char> &, long long,
+                                                                               long long)> callback,
+                                                   std::vector<char>& source, const std::vector<char>& search_str, bool forward,
+                                                   long long start_offset, long long search_size, long long max_count)
+{
+    // Корректировака начального и конечного смещения
+    auto source_size = static_cast<long long>(source.size());
+    auto search_str_size = static_cast<long long>(search_str.size());
+    if (start_offset < 0) {
+        start_offset = std::max(source_size + start_offset, 0LL);
+    }
+    if (search_size > source_size) { search_size = source_size; }
+    long long end_offset = std::min(source_size, start_offset + search_size);
+
+    // Поиск
+    long long found_count = 0;
+    if (start_offset + search_str_size <= end_offset) {
+        if (forward) {
+            // Поиск вперёд
+            auto start_iter = source.begin() + start_offset;
+            auto end_iter = source.begin() + end_offset;
+            while (found_count < max_count) {
+                auto pos_iter = search(start_iter, end_iter, search_str.cbegin(), search_str.cend());
+                if (pos_iter == end_iter) { break; }
+                auto result = callback(source, pos_iter - source.begin(), ++found_count);
+                start_iter = pos_iter + 1;  // следующая позиция поиска
+                if (result != ProcessResult::ok) { return {result, found_count}; }
+            }
+        } else {
+            // Поиск назад
+            auto start_iter = source.rbegin() + (source_size - end_offset);
+            auto end_iter = source.rend() - start_offset;
+            while (found_count < max_count) {
+                auto pos_iter = search(start_iter, end_iter, search_str.crbegin(), search_str.crend());
+                if (pos_iter == end_iter) { break; }
+                auto result = callback(source, pos_iter.base() - source.begin() - search_str_size, ++found_count);
+                start_iter = pos_iter + 1;  // следующая позиция поиска
+                if (result != ProcessResult::ok) { return {result, found_count}; }
+            }
+        }
+    }
+    return {ProcessResult::ok, found_count};
+}
+
+
 // Преобразовать hex-строку в вектор символов, вернуть флаг успеха
 bool parse_hexstring(const char* hexstring, std::vector<char>& result)
 {
@@ -230,7 +277,7 @@ std::vector<std::pair<int, int>> rangeset(std::string src)
     std::vector<std::pair<int, int>> result;
     for (int i = 1; i < num_set.size(); i += 2)
     {
-        result.push_back(std::make_pair(num_set[i], num_set[i + 1]));
+        result.emplace_back(num_set[i], num_set[i + 1]);
     }
     return result;
 }
@@ -449,3 +496,41 @@ std::string viravn_offset(const char *offset)
     return tmpstr;
 }
 
+bool is_ext4(const std::vector<char>& buffer) {
+    // Приводим буфер к типу ext2_super_block, чтобы можно было обращаться к полям
+    const auto* superblock = reinterpret_cast<const ext2_super_block*>(buffer.data() + 1024);
+    // Проверяем сигнатуру ext4
+    if (superblock->s_magic == EXT2_SUPER_MAGIC) {
+        return true;
+    }
+    return false;
+}
+
+bool is_erofs(const std::vector<char>& buffer) {
+    // Приводим буфер к типу erofs_super_block, чтобы можно было обращаться к полям
+    const auto* superblock = reinterpret_cast<const erofs_super_block*>(buffer.data() + EROFS_SUPER_OFFSET);
+    if (superblock->magic == EROFS_SUPER_MAGIC_V1) {
+        return true;
+    }
+    return false;
+}
+
+bool is_boot(const std::vector<char>& buffer) {
+    // Приводим буфер к типу boot_img_hdr, чтобы можно было обращаться к полям
+    const auto * superblock = reinterpret_cast<const boot_img_hdr *>(buffer.data());
+    std::string temp(reinterpret_cast<char const*>(superblock->magic), sizeof superblock->magic);
+    if (temp == BOOT_MAGIC || temp == VENDOR_BOOT_MAGIC) {
+        return true;
+    }
+    return false;
+}
+
+// Функция для определения, является ли файл форматом Android sparse
+bool is_sparse(const std::vector<char>& buffer) {
+    // Приводим буфер к типу sparse_header, чтобы можно было обращаться к полям
+    const auto * superblock = reinterpret_cast<const sparse_header *>(buffer.data());
+    if (superblock->magic == SPARSE_HEADER_MAGIC) {
+        return true;
+    }
+    return false;
+}

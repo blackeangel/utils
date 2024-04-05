@@ -41,7 +41,8 @@ ProcessResult WriteKey::process()
         std::string fname(image_file.string());
         std::filesystem::copy(image_file, fname + "_backup");
     }
-    std::string tmpstr = viravn_offset(foffset);
+    std::string tmpstr;
+    tmpstr = viravn_offset(foffset);
     long position = string2long(tmpstr);
     size_t size_img = std::filesystem::file_size(image_file);
     std::fstream output_img(image_file, std::ios::in | std::ios::out | std::ios::binary);
@@ -76,7 +77,7 @@ ProcessResult WriteKey::process()
         //open img and seekp and write <--
     }
     if(keys == "-h"||keys == "-bh"||keys == "-hb"){
-        std::string tmpstr = viravn_offset(file_value);
+        tmpstr = viravn_offset(file_value);
         std::vector<char> data = hex2byte(tmpstr.c_str());
         //open img and seekp and write -->
         output_img.write(data.data(), data.size());

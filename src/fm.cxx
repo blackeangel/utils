@@ -68,7 +68,7 @@ std::string getFileType(const std::string &filename)
             return "";
         }
 
-        const int maxBytesToRead = 4096; // Читаем только первые несколько килобайт файла
+        const int maxBytesToRead = 4194304; // Читаем только первые несколько килобайт файла
         std::vector<char> content(maxBytesToRead);
         file.read(content.data(), maxBytesToRead);
 
@@ -76,26 +76,25 @@ std::string getFileType(const std::string &filename)
         std::streamsize bytesRead = file.gcount();
 
         // Проверяем тип файла на Sparse
-        if (bytesRead >= 4 && std::search(content.begin(), content.begin() + bytesRead, "\x3A\xFF\x26\xED", "\x3A\xFF\x26\xED" + 4) != content.end())
+        if (is_sparse(content))
         {
             return "Android Sparse Image";
         }
 
         // Проверяем тип файла на Android Boot Image
-        if (bytesRead >= 8 && (std::search(content.begin(), content.begin() + bytesRead, "ANDROID!", "ANDROID!" + 8) != content.end() ||
-                               std::search(content.begin(), content.begin() + bytesRead, "VNDRBOOT", "VNDRBOOT" + 8) != content.end()))
+        if (is_boot(content))
         {
             return "Android Boot Image";
         }
 
         // Проверяем тип файла на EROFS
-        if (bytesRead >= 4 && std::search(content.begin(), content.begin() + bytesRead, "\xe2\xe1\xf5\xe0", "\xe2\xe1\xf5\xe0" + 4) != content.end())
+        if (is_erofs(content))
         {
             return "EROS File System (EROFs)";
         }
 
         // Проверяем тип файла на Ext4
-        if (bytesRead >= 2 && (std::search(content.begin(), content.begin() + bytesRead, "\x53\xEF", "\x53\xEF" + 2) != content.end()))
+        if (is_ext4(content))
         {
             return "Ext4 File System";
         }
@@ -327,7 +326,7 @@ ParseResult FileExplorer::parse_cmd_line(int argc, char* argv[])
             filters.clear();
             for (int i = last_iter; i < argc; ++i)
             {
-                filters.push_back(argv[i]);
+                filters.emplace_back(argv[i]);
             }
         }
     }

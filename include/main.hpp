@@ -105,9 +105,9 @@ public:
     ProcessResult process() override;
 
 private:
-    std::pair<int, std::vector<std::pair<int, int>>> parse_transfer_list_file(std::string path);
+    std::pair<int, std::vector<std::pair<int, int>>> parse_transfer_list_file(const std::string& path);
     // Create empty image with Correct size;
-    void initOutputFile(std::string output_file);
+    void initOutputFile(const std::string& output_file);
 
     std::vector<std::pair<int, int>> all_block_sets;
     unsigned int max_file_size;
@@ -267,6 +267,7 @@ public:
     ProcessResult process() override;
 
 private:
+    bool rw = false;
     std::vector<std::string> directories;
 };
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -303,20 +304,47 @@ private:
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Поиск строки (вектора символов) search_str в файле filename и вызов функции callback для каждого вхождения.
 // Возвращает результат операции (в т.ч. возвращаемый функцией callback) и кол-во найденных вхождений.
-// read_only - открыть только для чтения (true, если не предполагается замена), forward - направление (true - вперёд),
-// start_offset - начальное смещение (отрицательное - с конца), search_size - размер области поиска,
-// max_count - максимальное кол-во вхождений, buf_size - размер буфера.
+// read_only - открыть только для чтения (true, если не предполагается замена),
+// forward - направление (true - вперёд),
+// start_offset - начальное смещение (отрицательное - с конца),
+// search_size - размер области поиска,
+// max_count - максимальное кол-во вхождений,
+// buf_size - размер буфера.
 // P.S. start_offset - это не смещение, с которого начинается поиск, а начало блока размером search_size.
 // Т.е. при forward = false поиск начинается не с позиции start_offset, а с start_offset + search_size.
+//
 // Функция callback должна иметь объявление: bool callback(std::fstream& file, long long offset, long long number);
-// Здесь file - объект открытого файла, offset - смещение, по которому была найдена строка, number - номер вхождения.
+// Здесь
+// file - объект открытого файла,
+// offset - смещение, по которому была найдена строка,
+// number - номер вхождения.
 // Функция возвращает ProcessResult::ok, если нужно продолжить поиск, другие значения в противном случае false.
 // Текущая позиция файла обычно не совпадает со смещением (offset). При необходимости выполнить замену нужно сначала
 // переместить указатель в нужную позицию (file.seekp(offset)). Восстанавливать прежнюю позицию нет необходимости.
 std::pair<ProcessResult, long long> find_in_file(std::function<ProcessResult(std::fstream&, long long, long long)> callback,
-    const char* filename, const std::vector<char>& search_str, bool read_only, bool forward = true,
-    long long start_offset = 0, long long search_size = LLONG_MAX, long long max_count = INT_MAX,
-    long long buf_size = 1024*1024);
+const char* filename, const std::vector<char>& search_str, bool read_only, bool forward = true,
+long long start_offset = 0, long long search_size = LLONG_MAX, long long max_count = LLONG_MAX,
+long long buf_size = 1024*1024);
+
+// Поиск строки (вектора символов) search_str в векторе source и вызов функции callback для каждого вхождения.
+// Возвращает результат операции (в т.ч. возвращаемый функцией callback) и кол-во найденных вхождений.
+// forward - направление (true - вперёд),
+// start_offset - начальное смещение (отрицательное - с конца),
+// search_size - размер области поиска,
+// max_count - максимальное кол-во вхождений.
+// P.S. start_offset - это не смещение, с которого начинается поиск, а начало блока размером search_size.
+// Т.е. при forward = false поиск начинается не с позиции start_offset, а с start_offset + search_size.
+//
+// Функция callback должна иметь объявление:
+// bool callback(std::vector& data, long long offset, long long number);
+// Здесь
+// vector - исходный вектор,
+// offset - смещение, по которому была найдена строка,
+// number - номер вхождения.
+// Функция возвращает ProcessResult::ok, если нужно продолжить поиск, другие значения в противном случае.
+std::pair<ProcessResult, long long> find_in_vector(std::function<ProcessResult(std::vector<char>&, long long, long long)> callback,
+std::vector<char>& source, const std::vector<char>& search_str, bool forward = true,
+long long start_offset = 0, long long search_size = LLONG_MAX, long long max_count = LLONG_MAX);
 
 // Преобразовать hex-строку в вектор символов, вернуть флаг успеха
 bool parse_hexstring(const char* hexstring, std::vector<char>& result);
@@ -341,7 +369,7 @@ std::vector<std::string> split(const std::string &s, char delim);
 
 std::vector<std::pair<int, int>> rangeset(std::string src);
 
-long string2long(const std::string s);
+long string2long(std::string s);
 
 std::vector<char> hex2byte(const char *hex);
 
@@ -356,3 +384,13 @@ std::size_t findBackwardOffsetInFile(std::FILE *file, std::size_t size, char con
 std::string viravn_offset(const char *offset);
 
 //std::string find_offset_fn(const std::filesystem::path image_file, const char *whatfind, int way = 0);
+
+bool is_sparse(const std::vector<char>& buffer);
+
+bool is_boot(const std::vector<char>& buffer);
+
+bool is_erofs(const std::vector<char>& buffer);
+
+bool is_ext4(const std::vector<char>& buffer);
+
+const char* findValueInVector(const std::vector<char>& buffer, unsigned int value);
