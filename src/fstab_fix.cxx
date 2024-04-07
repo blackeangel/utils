@@ -7,7 +7,7 @@ void FstabFix::show_help() {
 fstab_fix
 
 Usage:
-  utils fstab_fix -rw <folder1> <folder2>....<folderN>
+  utils fstab_fix [-rw] <folder1> <folder2>....<folderN>
     Where:
         -rw - replace 'ro' to 'rw' in lines with ext4
         <folder1>...<folderN> - folder where finding fstab's files
@@ -58,9 +58,9 @@ struct std::hash<std::pair<std::string, std::string>> {
     }
 };
 
-// Функция замены прав ro -> rw для всех типов, кроме erofs
+// Функция замены прав ro -> rw для ext4
 void updateRights(FstabEntry &entry) {
-    if (entry.type == "erofs") { return; }
+    if (entry.type != "ext4") { return; }
     if (entry.mountFlags.starts_with("ro")) {
         entry.line[entry.mountFlags_pos + 1] = 'w';  // в начале строки
     } else if (entry.mountFlags.ends_with("ro")) {
@@ -79,6 +79,8 @@ UpdateResult updateFstab(const std::string &filename, bool rw) {
     std::vector<FstabEntry> entries;
     // Множество для хранения путей + точек монтирования (только для ext4)
     std::unordered_set<std::pair<std::string, std::string>> ext4Set;
+    // Множество для хранения путей + точек монтирования (только для erofs)
+    std::unordered_set<std::pair<std::string, std::string>> erofsSet;
 
     // Открываем файл
     std::fstream file(filename, std::ios::in);
@@ -86,24 +88,35 @@ UpdateResult updateFstab(const std::string &filename, bool rw) {
         return UpdateResult::openError;
     }
 
-    // Читаем строки из файла в вектор entries, обновляем ext4Set
+    // Читаем строки из файла в вектор entries, обновляем ext4Set и erofsSet
     std::string line;
     while (std::getline(file, line)) {
         FstabEntry entry = std::move(line);
         if (entry.type == "ext4") {
             ext4Set.emplace(std::make_pair(entry.source, entry.mountPoint));
+        } else if (entry.type == "erofs") {
+            erofsSet.emplace(std::make_pair(entry.source, entry.mountPoint));
         }
         entries.emplace_back(std::move(entry));
     }
     file.close();
 
-    // Записываем строки обратно в файл, заменяя ro -> rw и дублируя erofs -> ext4 при необходимости
+    // Записываем строки обратно в файл, заменяя ro -> rw и дублируя ext4 -> erofs при необходимости
     file.open(filename, std::ios::out);
     if (!file.is_open()) {
         return UpdateResult::createError;
     }
     for (auto &entry: entries) {
-        if (entry.type == "erofs" && !ext4Set.contains(std::make_pair(entry.source, entry.mountPoint))) {
+        if (entry.type == "ext4" && !erofsSet.contains(std::make_pair(entry.source, entry.mountPoint))) {
+            if (!(file << entry.line << '\n')) {
+                return UpdateResult::writeError;
+            }
+            entry.line[entry.type_pos + 1] = 'r';
+            entry.line[entry.type_pos + 2] = 'o';
+            entry.line[entry.type_pos + 3] = 'f';
+            entry.line[entry.type_pos + 4] = 's';
+            entry.type.clear();  // entry.type = "erofs"
+        } else if (entry.type == "erofs" && !ext4Set.contains(std::make_pair(entry.source, entry.mountPoint))) {
             if (!(file << entry.line << '\n')) {
                 return UpdateResult::writeError;
             }
@@ -126,24 +139,23 @@ UpdateResult updateFstab(const std::string &filename, bool rw) {
 
 // Рекурсивная функция для обхода файловой системы и обновления файлов fstab
 void updateFstabRecursively(const std::string &path, bool rw) {
-    for (const auto &entry: std::filesystem::recursive_directory_iterator(path,
-                                                                          std::filesystem::directory_options::none)) {
-        if (entry.is_regular_file() && entry.path().filename().string().find("fstab") != std::string::npos) {
-
-            std::cout << "Updating fstab file: " << entry.path().string() << std::endl;
-
-            switch (updateFstab(entry.path().string(), rw)) {
+    if (std::filesystem::is_symlink(path)) { return; }
+    for (const auto &entry: std::filesystem::recursive_directory_iterator(path)) {
+        if (entry.is_regular_file() && !entry.is_symlink() && entry.path().filename().string().find(".fstab") != std::string::npos) {
+            auto name = entry.path().string();
+            std::cout << "Updating fstab file: " << name << std::endl;
+            switch (updateFstab(name, rw)) {
                 case UpdateResult::ok:
                     std::cout << "File updated successfully." << std::endl;
                     break;
                 case UpdateResult::openError:
-                    std::cerr << "Unable to open file: " << entry.path().string();
+                    std::cerr << "Unable to open file." << std::endl;
                     break;
                 case UpdateResult::createError:
-                    std::cerr << "Unable to create file: " << entry.path().string();
+                    std::cerr << "Unable to create file." << std::endl;
                     break;
                 case UpdateResult::writeError:
-                    std::cerr << "Unable to write file: " << entry.path().string();
+                    std::cerr << "Unable to write file." << std::endl;
                     break;
             }
         }
@@ -156,18 +168,14 @@ ParseResult FstabFix::parse_cmd_line(int argc, char *argv[]) {
         show_help();
         return ParseResult::wrong_option;
     }
+    int i = 0;
     if (std::string(argv[0]) == "-rw") {
         rw = true;
-
-        // Обновляем файлы fstab в указанных директориях и всех их поддиректориях
-        for (int i = 1; i < argc; ++i) {
-            directories.emplace_back(argv[i]);
-        }
-    } else {
-        // Обновляем файлы fstab в указанных директориях и всех их поддиректориях
-        for (int i = 0; i < argc; ++i) {
-            directories.emplace_back(argv[i]);
-        }
+        i = 1;
+    }
+    // Обновляем файлы fstab в указанных директориях и всех их поддиректориях
+    for (; i < argc; ++i) {
+        directories.emplace_back(argv[i]);
     }
     return ParseResult::ok;
 }
