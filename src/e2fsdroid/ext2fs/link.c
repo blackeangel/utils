@@ -614,4 +614,33 @@ errcode_t ext2fs_link(ext2_filsys fs, ext2_ino_t dir, const char *name,
 
 	EXT2_CHECK_MAGIC(fs, EXT2_ET_MAGIC_EXT2FS_FILSYS);
 
-	if (!(fs->fla
+	if (!(fs->flags & EXT2_FLAG_RW))
+		return EXT2_ET_RO_FILSYS;
+
+	if ((retval = ext2fs_read_inode(fs, dir, &inode)) != 0)
+		return retval;
+
+	if (inode.i_flags & EXT2_INDEX_FL)
+		return dx_link(fs, dir, &inode, name, ino, flags);
+
+	ls.fs = fs;
+	ls.name = name;
+	ls.namelen = name ? strlen(name) : 0;
+	ls.inode = ino;
+	ls.flags = flags;
+	ls.done = 0;
+	ls.sb = fs->super;
+	ls.blocksize = fs->blocksize;
+	ls.err = 0;
+
+	retval = ext2fs_dir_iterate2(fs, dir, DIRENT_FLAG_INCLUDE_EMPTY,
+				     NULL, link_proc, &ls);
+	if (retval)
+		return retval;
+	if (ls.err)
+		return ls.err;
+
+	if (!ls.done)
+		return EXT2_ET_DIR_NO_SPACE;
+	return 0;
+}

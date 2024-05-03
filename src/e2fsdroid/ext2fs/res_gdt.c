@@ -15,23 +15,24 @@
 #include <string.h>
 #include <time.h>
 #include "ext2_fs.h"
-#include "ext2fs.h"
+#include "ext2fsP.h"
 
 /*
  * Iterate through the groups which hold BACKUP superblock/GDT copies in an
  * ext3 filesystem.  The counters should be initialized to 1, 5, and 7 before
- * calling this for the first time.  In a sparse filesystem it will be the
- * sequence of powers of 3, 5, and 7: 1, 3, 5, 7, 9, 25, 27, 49, 81, ...
+ * calling this for the first time.  In a sparse_super filesystem it will be
+ * the sequence of powers of 3, 5, and 7: 1, 3, 5, 7, 9, 25, 27, 49, 81, ...
  * For a non-sparse filesystem it will be every group: 1, 2, 3, 4, ...
+ * For a sparse_super2 filesystem there are two backups in specific groups.
  */
-static unsigned int list_backups(ext2_filsys fs, unsigned int *three,
-				 unsigned int *five, unsigned int *seven)
+dgrp_t ext2fs_list_backups(ext2_filsys fs, dgrp_t *three,
+			   dgrp_t *five, dgrp_t *seven)
 {
-	unsigned int *min = three;
-	int mult = 3;
-	unsigned int ret;
+	dgrp_t *min = three;
+	unsigned long long mult = 3;
+	dgrp_t ret;
 
-	if (ext2fs_has_feature_sparse_super2(fs->super)) {
+	if (fs && ext2fs_has_feature_sparse_super2(fs->super)) {
 		if (*min == 1) {
 			*min += 1;
 			if (fs->super->s_backup_bgs[0])
@@ -42,11 +43,14 @@ static unsigned int list_backups(ext2_filsys fs, unsigned int *three,
 			if (fs->super->s_backup_bgs[1])
 				return fs->super->s_backup_bgs[1];
 		}
+
 		return fs->group_desc_count;
 	}
-	if (!ext2fs_has_feature_sparse_super(fs->super)) {
+
+	if (fs && !ext2fs_has_feature_sparse_super(fs->super)) {
 		ret = *min;
 		*min += 1;
+
 		return ret;
 	}
 
@@ -60,7 +64,11 @@ static unsigned int list_backups(ext2_filsys fs, unsigned int *three,
 	}
 
 	ret = *min;
-	*min *= mult;
+	mult *= *min;
+	if (mult > (dgrp_t)-1)
+		*min = (dgrp_t)-1;
+	else
+		*min = mult;
 
 	return ret;
 }
@@ -135,16 +143,108 @@ errcode_t ext2fs_create_resize_inode(ext2_filsys fs)
 		retval = ext2fs_inode_size_set(fs, &inode, inode_size);
 		if (retval)
 			goto out_free;
-		inode.i_ctime = fs->now ? fs->now : time(0);
+		inode.i_ctime = ext2fsP_get_time(fs);
 	}
 
 	for (rsv_off = 0, gdt_off = fs->desc_blocks,
 	     gdt_blk = sb_blk + 1 + fs->desc_blocks;
 	     rsv_off < sb->s_reserved_gdt_blocks;
 	     rsv_off++, gdt_off++, gdt_blk++) {
-		unsigned int three = 1, five = 5, seven = 7;
-		unsigned int grp, last = 0;
+		dgrp_t three = 1, five = 5, seven = 7;
+		dgrp_t grp, last = 0;
 		int gdt_dirty = 0;
 
 		gdt_off %= apb;
-		if (!di
+		if (!dindir_buf[gdt_off]) {
+			/* FIXME XXX XXX
+			blk_t new_blk;
+
+			retval = ext2fs_new_block(fs, gdt_blk, 0, &new_blk);
+			if (retval)
+				goto out_free;
+			if (new_blk != gdt_blk) {
+				// XXX free block
+				retval = -1; // XXX
+			}
+			*/
+			gdt_dirty = dindir_dirty = inode_dirty = 1;
+			memset(gdt_buf, 0, fs->blocksize);
+			dindir_buf[gdt_off] = gdt_blk;
+			ext2fs_iblk_add_blocks(fs, &inode, 1);
+#ifdef RES_GDT_DEBUG
+			printf("added primary GDT block %u at %u[%u]\n",
+			       gdt_blk, dindir_blk, gdt_off);
+#endif
+		} else if (dindir_buf[gdt_off] == gdt_blk) {
+#ifdef RES_GDT_DEBUG
+			printf("reading primary GDT block %u\n", gdt_blk);
+#endif
+			retval = ext2fs_read_ind_block(fs, gdt_blk, gdt_buf);
+			if (retval)
+				goto out_dindir;
+		} else {
+#ifdef RES_GDT_DEBUG
+			printf("bad primary GDT %u != %u at %u[%u]\n",
+			       dindir_buf[gdt_off], gdt_blk,dindir_blk,gdt_off);
+#endif
+			retval = EXT2_ET_RESIZE_INODE_CORRUPT;
+			goto out_dindir;
+		}
+
+		while ((grp = ext2fs_list_backups(fs, &three, &five, &seven)) <
+		       fs->group_desc_count) {
+			blk_t expect = gdt_blk + grp * sb->s_blocks_per_group;
+
+			if (!gdt_buf[last]) {
+#ifdef RES_GDT_DEBUG
+				printf("added backup GDT %u grp %u@%u[%u]\n",
+				       expect, grp, gdt_blk, last);
+#endif
+				gdt_buf[last] = expect;
+				ext2fs_iblk_add_blocks(fs, &inode, 1);
+				gdt_dirty = inode_dirty = 1;
+			} else if (gdt_buf[last] != expect) {
+#ifdef RES_GDT_DEBUG
+				printf("bad backup GDT %u != %u at %u[%u]\n",
+				       gdt_buf[last], expect, gdt_blk, last);
+#endif
+				retval = EXT2_ET_RESIZE_INODE_CORRUPT;
+				goto out_dindir;
+			}
+			last++;
+		}
+		if (gdt_dirty) {
+#ifdef RES_GDT_DEBUG
+			printf("writing primary GDT block %u\n", gdt_blk);
+#endif
+			retval = ext2fs_write_ind_block(fs, gdt_blk, gdt_buf);
+			if (retval)
+				goto out_dindir;
+		}
+	}
+
+out_dindir:
+	if (dindir_dirty) {
+		retval2 = ext2fs_write_ind_block(fs, dindir_blk, dindir_buf);
+		if (!retval)
+			retval = retval2;
+	}
+out_inode:
+#ifdef RES_GDT_DEBUG
+	printf("inode.i_blocks = %u, i_size = %lu\n", inode.i_blocks,
+	       EXT2_I_SIZE(&inode));
+#endif
+	if (inode_dirty) {
+		time_t now = ext2fsP_get_time(fs);
+
+		ext2fs_inode_xtime_set(&inode, i_atime, now);
+		ext2fs_inode_xtime_set(&inode, i_mtime, now);
+		retval2 = ext2fs_write_new_inode(fs, EXT2_RESIZE_INO, &inode);
+		if (!retval)
+			retval = retval2;
+	}
+out_free:
+	ext2fs_free_mem(&dindir_buf);
+	return retval;
+}
+

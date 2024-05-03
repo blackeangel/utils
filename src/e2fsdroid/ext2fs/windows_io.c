@@ -154,6 +154,14 @@ static errcode_t windows_get_stats(io_channel channel, io_stats *stats)
 	return retval;
 }
 
+static LARGE_INTEGER make_large_integer(LONGLONG value)
+{
+	LARGE_INTEGER	li;
+
+	li.QuadPart = value;
+	return li;
+}
+
 /*
  * Here are the raw I/O functions
  */
@@ -174,14 +182,14 @@ static errcode_t raw_read_blk(io_channel channel,
 	location = ((ext2_loff_t) block * channel->block_size) + data->offset;
 
 	if (data->flags & IO_FLAG_FORCE_BOUNCE) {
-		if (SetFilePointer(data->handle, location, NULL, FILE_BEGIN) == INVALID_SET_FILE_POINTER) {
+		if (!SetFilePointerEx(data->handle, make_large_integer(location), NULL, FILE_BEGIN)) {
 			retval = GetLastError();
 			goto error_out;
 		}
 		goto bounce_read;
 	}
 
-	if (SetFilePointer(data->handle, location, NULL, FILE_BEGIN) == INVALID_SET_FILE_POINTER) {
+	if (!SetFilePointerEx(data->handle, make_large_integer(location), NULL, FILE_BEGIN)) {
 		retval = GetLastError();
 		goto error_out;
 	}
@@ -261,14 +269,14 @@ static errcode_t raw_write_blk(io_channel channel,
 	location = ((ext2_loff_t) block * channel->block_size) + data->offset;
 
 	if (data->flags & IO_FLAG_FORCE_BOUNCE) {
-		if (SetFilePointer(data->handle, location, NULL, FILE_BEGIN) == INVALID_SET_FILE_POINTER) {
+		if (!SetFilePointerEx(data->handle, make_large_integer(location), NULL, FILE_BEGIN)) {
 			retval = GetLastError();
 			goto error_out;
 		}
 	goto bounce_write;
 	}
 
-		if (SetFilePointer(data->handle, location, NULL, FILE_BEGIN) == INVALID_SET_FILE_POINTER) {
+		if (!SetFilePointerEx(data->handle, make_large_integer(location), NULL, FILE_BEGIN)) {
 			retval = GetLastError();
 		goto error_out;
 	}
@@ -313,7 +321,7 @@ bounce_write:
 		if (size > channel->block_size)
 			actual = channel->block_size;
 		memcpy(data->bounce, buf, actual);
-		if (SetFilePointer(data->handle, location, NULL, FILE_BEGIN) == INVALID_SET_FILE_POINTER) {
+		if (!SetFilePointerEx(data->handle, make_large_integer(location), NULL, FILE_BEGIN)) {
 			retval = GetLastError();
 			goto error_out;
 		}
@@ -857,17 +865,6 @@ static errcode_t windows_write_byte(io_channel channel, unsigned long offset,
 	return EXT2_ET_UNIMPLEMENTED;
 }
 
-HANDLE windows_get_handle(io_channel channel)
-{
-	struct windows_private_data *data;
-
-	EXT2_CHECK_MAGIC_RETURN(channel, EXT2_ET_MAGIC_IO_CHANNEL, INVALID_HANDLE_VALUE);
-	data = (struct windows_private_data *) channel->private_data;
-	EXT2_CHECK_MAGIC_RETURN(data, EXT2_ET_MAGIC_WINDOWS_IO_CHANNEL, INVALID_HANDLE_VALUE);
-
-	return data->handle;
-}
-
 /*
  * Flush data buffers to disk.
  */
@@ -983,4 +980,49 @@ int ext2fs_open_file(const char *pathname, int flags, mode_t mode)
 #else
 		return open(pathname, flags, mode);
 	else
-		return ope
+		return open(pathname, flags);
+#endif
+}
+
+int ext2fs_stat(const char *path, ext2fs_struct_stat *buf)
+{
+#if defined(HAVE_FSTAT64) && !defined(__OSX_AVAILABLE_BUT_DEPRECATED)
+	return stat64(path, buf);
+#else
+	return stat(path, buf);
+#endif
+}
+
+int ext2fs_fstat(int fd, ext2fs_struct_stat *buf)
+{
+#if defined(HAVE_FSTAT64) && !defined(__OSX_AVAILABLE_BUT_DEPRECATED)
+	return fstat64(fd, buf);
+#else
+	return fstat(fd, buf);
+#endif
+}
+
+#if __GNUC_PREREQ (4, 6)
+#pragma GCC diagnostic pop
+#endif
+
+static struct struct_io_manager struct_windows_manager = {
+	.magic		= EXT2_ET_MAGIC_IO_MANAGER,
+	.name		= "Windows I/O Manager",
+	.open		= windows_open,
+	.close		= windows_close,
+	.set_blksize	= windows_set_blksize,
+	.read_blk	= windows_read_blk,
+	.write_blk	= windows_write_blk,
+	.flush		= windows_flush,
+	.write_byte	= windows_write_byte,
+	.set_option	= windows_set_option,
+	.get_stats	= windows_get_stats,
+	.read_blk64	= windows_read_blk64,
+	.write_blk64	= windows_write_blk64,
+	.discard	= windows_discard,
+	.cache_readahead	= windows_cache_readahead,
+	.zeroout	= windows_zeroout,
+};
+
+io_manager windows_io_manager = &struct_windows_manager;

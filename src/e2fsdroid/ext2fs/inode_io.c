@@ -154,4 +154,137 @@ static errcode_t inode_open(const char *name, int flags, io_channel *channel)
 	retval = ext2fs_file_open2(data->fs, data->ino,
 				   (data->flags & CHANNEL_HAS_INODE) ?
 				   &data->inode : 0, open_flags,
-				   &d
+				   &data->file);
+	if (retval)
+		goto cleanup;
+
+	*channel = io;
+	return 0;
+
+cleanup:
+	if (io && io->name)
+		ext2fs_free_mem(&io->name);
+	if (data)
+		ext2fs_free_mem(&data);
+	if (io)
+		ext2fs_free_mem(&io);
+	return retval;
+}
+
+static errcode_t inode_close(io_channel channel)
+{
+	struct inode_private_data *data;
+	errcode_t	retval = 0;
+
+	EXT2_CHECK_MAGIC(channel, EXT2_ET_MAGIC_IO_CHANNEL);
+	data = (struct inode_private_data *) channel->private_data;
+	EXT2_CHECK_MAGIC(data, EXT2_ET_MAGIC_INODE_IO_CHANNEL);
+
+	if (--channel->refcount > 0)
+		return 0;
+
+	retval = ext2fs_file_close(data->file);
+
+	ext2fs_free_mem(&channel->private_data);
+	if (channel->name)
+		ext2fs_free_mem(&channel->name);
+	ext2fs_free_mem(&channel);
+	return retval;
+}
+
+static errcode_t inode_set_blksize(io_channel channel, int blksize)
+{
+	struct inode_private_data *data;
+
+	EXT2_CHECK_MAGIC(channel, EXT2_ET_MAGIC_IO_CHANNEL);
+	data = (struct inode_private_data *) channel->private_data;
+	EXT2_CHECK_MAGIC(data, EXT2_ET_MAGIC_INODE_IO_CHANNEL);
+
+	channel->block_size = blksize;
+	return 0;
+}
+
+
+static errcode_t inode_read_blk64(io_channel channel,
+				unsigned long long block, int count, void *buf)
+{
+	struct inode_private_data *data;
+	errcode_t	retval;
+
+	EXT2_CHECK_MAGIC(channel, EXT2_ET_MAGIC_IO_CHANNEL);
+	data = (struct inode_private_data *) channel->private_data;
+	EXT2_CHECK_MAGIC(data, EXT2_ET_MAGIC_INODE_IO_CHANNEL);
+
+	if ((retval = ext2fs_file_llseek(data->file,
+				(ext2_off64_t)(block * channel->block_size),
+				EXT2_SEEK_SET, 0)))
+		return retval;
+
+	count = (count < 0) ? -count : (count * channel->block_size);
+
+	return ext2fs_file_read(data->file, buf, count, 0);
+}
+
+static errcode_t inode_read_blk(io_channel channel, unsigned long block,
+			       int count, void *buf)
+{
+	return inode_read_blk64(channel, block, count, buf);
+}
+
+static errcode_t inode_write_blk64(io_channel channel,
+				unsigned long long block, int count, const void *buf)
+{
+	struct inode_private_data *data;
+	errcode_t	retval;
+
+	EXT2_CHECK_MAGIC(channel, EXT2_ET_MAGIC_IO_CHANNEL);
+	data = (struct inode_private_data *) channel->private_data;
+	EXT2_CHECK_MAGIC(data, EXT2_ET_MAGIC_INODE_IO_CHANNEL);
+
+	if ((retval = ext2fs_file_llseek(data->file,
+				(ext2_off64_t) (block * channel->block_size),
+				EXT2_SEEK_SET, 0)))
+		return retval;
+
+	count = (count < 0) ? -count : (count * channel->block_size);
+
+	return ext2fs_file_write(data->file, buf, count, 0);
+}
+
+static errcode_t inode_write_blk(io_channel channel, unsigned long block,
+				int count, const void *buf)
+{
+	return inode_write_blk64(channel, block, count, buf);
+}
+
+static errcode_t inode_write_byte(io_channel channel, unsigned long offset,
+				 int size, const void *buf)
+{
+	struct inode_private_data *data;
+	errcode_t	retval = 0;
+
+	EXT2_CHECK_MAGIC(channel, EXT2_ET_MAGIC_IO_CHANNEL);
+	data = (struct inode_private_data *) channel->private_data;
+	EXT2_CHECK_MAGIC(data, EXT2_ET_MAGIC_INODE_IO_CHANNEL);
+
+	if ((retval = ext2fs_file_lseek(data->file, offset,
+					EXT2_SEEK_SET, 0)))
+		return retval;
+
+	return ext2fs_file_write(data->file, buf, size, 0);
+}
+
+/*
+ * Flush data buffers to disk.
+ */
+static errcode_t inode_flush(io_channel channel)
+{
+	struct inode_private_data *data;
+
+	EXT2_CHECK_MAGIC(channel, EXT2_ET_MAGIC_IO_CHANNEL);
+	data = (struct inode_private_data *) channel->private_data;
+	EXT2_CHECK_MAGIC(data, EXT2_ET_MAGIC_INODE_IO_CHANNEL);
+
+	return ext2fs_file_flush(data->file);
+}
+

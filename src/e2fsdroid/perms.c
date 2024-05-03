@@ -6,6 +6,7 @@
 #include "support/nls-enable.h"
 #include <time.h>
 #include <sys/stat.h>
+#include "asprintf.h"
 
 #ifndef XATTR_SELINUX_SUFFIX
 # define XATTR_SELINUX_SUFFIX  "selinux"

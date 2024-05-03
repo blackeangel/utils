@@ -4,6 +4,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include "support/nls-enable.h"
+#include "asprintf.h"
 
 struct walk_ext_priv_data {
 	char			*path;

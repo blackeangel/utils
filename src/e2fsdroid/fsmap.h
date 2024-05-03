@@ -9,6 +9,7 @@
 # include <stdbool.h>
 # include <sys/types.h>
 # include <ext2fs/ext2fs.h>
+#include "asprintf.h"
 
 struct fsmap_format {
 	void* (* init)(const char *file, const char *mountpoint);

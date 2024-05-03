@@ -7,9 +7,9 @@ set(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
 set(BUILD_SHARED_LIBS OFF)
 set(CMAKE_EXE_LINKER_FLAGS "-static")
 
-if(NOT CMAKE_BUILD_TYPE)
+if (NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
-endif()
+endif ()
 
 #set(CMAKE_CXX_FLAGS "-Wall -Wextra")
 #set(CMAKE_CXX_FLAGS_DEBUG "-g")
@@ -26,6 +26,8 @@ include_directories(
         ${PROJECT_SOURCE_DIR}/include
         ${PROJECT_SOURCE_DIR}/src
         ${PROJECT_SOURCE_DIR}/src/zlib
+        ${PROJECT_SOURCE_DIR}/src/sparse
+        ${PROJECT_SOURCE_DIR}/src/sparse/android-base
         #${PROJECT_SOURCE_DIR}/src/openssl
         #${PROJECT_SOURCE_DIR}/src/e2fsdroid
         #${PROJECT_SOURCE_DIR}/src/e2fsdroid/ext2fs
@@ -34,8 +36,10 @@ file(GLOB SRCS
         "${PROJECT_SOURCE_DIR}/include/*"
         "${PROJECT_SOURCE_DIR}/src/*"
         "${PROJECT_SOURCE_DIR}/src/zlib/*"
+        "${PROJECT_SOURCE_DIR}/src/sparse/*"
+        "${PROJECT_SOURCE_DIR}/src/sparse/android-base/*"
         #"${PROJECT_SOURCE_DIR}/src/openssl/*"
-       # "${PROJECT_SOURCE_DIR}/src/e2fsdroid/*"
-       # "${PROJECT_SOURCE_DIR}/src/e2fsdroid/ext2fs/*"
+        # "${PROJECT_SOURCE_DIR}/src/e2fsdroid/*"
+        # "${PROJECT_SOURCE_DIR}/src/e2fsdroid/ext2fs/*"
 )
 add_executable(utils ${SRCS})
