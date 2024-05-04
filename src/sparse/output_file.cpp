@@ -28,7 +28,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include "../src/zlib/zlib.h"
+#include "../zlib/zlib.h"
 
 #include "defs.h"
 #include "output_file.h"

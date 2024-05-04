@@ -17,8 +17,7 @@
 #pragma once
 
 #include <stddef.h>  // for size_t
-#include <unistd.h>  // for TEMP_FAILURE_RETRY
-
+#include <unistd.h>
 #include <utility>
 
 // bionic and glibc both have TEMP_FAILURE_RETRY, but eg Mac OS' libc doesn't.

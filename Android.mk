@@ -34,6 +34,40 @@ LOCAL_SRC_FILES += \
 
 include $(BUILD_STATIC_LIBRARY)
 
+##############################################################################
+# sparse
+##############################################################################
+include $(CLEAR_VARS)
+
+LOCAL_MODULE := libsparse
+
+LOCAL_CFLAGS := \
+    -DHAVE_HIDDEN \
+    -DZLIB_CONST
+
+LOCAL_C_INCLUDES := \
+    src/zlib  \
+    src/e2fsdroid/ext2fs \
+    src/sparse/sparse \
+    src/sparse/android-base
+
+LOCAL_SRC_FILES += \
+src/sparse/android-base/mapped_file.cpp \
+src/sparse/android-base/stringprintf.cpp \
+src/sparse/append2simg.cpp \
+src/sparse/asprintf.c \
+src/sparse/backed_block.cpp \
+src/sparse/img2simg.cpp \
+src/sparse/output_file.cpp \
+src/sparse/simg2img.cpp \
+src/sparse/sparse.cpp \
+src/sparse/sparse_crc32.cpp \
+src/sparse/sparse_err.cpp \
+src/sparse/sparse_fuzzer.cpp \
+src/sparse/sparse_read.cpp \
+
+include $(BUILD_STATIC_LIBRARY)
+
 #####################################################################################
 #utils
 #####################################################################################
@@ -54,7 +88,9 @@ LOCAL_LDFLAGS := -fPIE -static -ldl
 LOCAL_SRC_FILES := $(wildcard src/*.cpp) \
 					$(wildcard src/*.cxx)
 
-LOCAL_STATIC_LIBRARIES := z
+LOCAL_STATIC_LIBRARIES := \
+z \
+sparse
 
 include $(BUILD_EXECUTABLE)
 

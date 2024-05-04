@@ -182,12 +182,12 @@ typedef int64_t         s64;
 #define __packed __attribute__((__packed__))
 
 #define __get_unaligned_t(type, ptr) ({						\
-	const struct { type x; } __packed *__pptr = (typeof(__pptr))(ptr);	\
+	const struct { type x; } __packed *__pptr = (__typeof(__pptr))(ptr);	\
 	__pptr->x;								\
 })
 
 #define __put_unaligned_t(type, val, ptr) do {					\
-	struct { type x; } __packed *__pptr = (typeof(__pptr))(ptr);		\
+	struct { type x; } __packed *__pptr = (__typeof(__pptr))(ptr);		\
 	__pptr->x = (val);							\
 } while (0)
 
