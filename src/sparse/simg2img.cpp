@@ -29,7 +29,7 @@
 #define O_BINARY 0
 #endif
 
-void simg2img_main_usage() {
+void simg2img_usage() {
   fprintf(stderr, "Usage: simg2img <sparse_image_files> <raw_image_file>\n");
 }
 
@@ -40,7 +40,7 @@ int simg2img_main_function(int argc, char* argv[]) {
   struct sparse_file* s;
 
   if (argc < 3) {
-      simg2img_main_usage();
+    simg2img_usage();
     exit(EXIT_FAILURE);
   }
 

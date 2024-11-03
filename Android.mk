@@ -81,7 +81,7 @@ LOCAL_C_INCLUDES := \
 	src/zlib \
     src/e2fsdroid/ext2fs
 
-LOCAL_CXXFLAGS := -fexceptions -std=c++2a -O2
+LOCAL_CXXFLAGS := -fexceptions -std=c++2a -pipe -O2 -s
 
 LOCAL_LDFLAGS := -fPIE -static -ldl
 

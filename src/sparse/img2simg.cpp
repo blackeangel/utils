@@ -60,7 +60,7 @@ int img2simg_main_function(int argc, char* argv[]) {
         mode = SPARSE_READ_MODE_HOLE;
         break;
       default:
-          img2simg_usage();
+        img2simg_usage();
         exit(EXIT_FAILURE);
     }
   }

@@ -42,7 +42,7 @@
 #define off64_t off_t
 #endif
 
-void usage() {
+void append2simg_usage() {
   fprintf(stderr, "Usage: append2simg <output> <input>\n");
 }
 
@@ -65,7 +65,7 @@ int append2simg_main_function(int argc, char* argv[]) {
     output_path = argv[1];
     input_path = argv[2];
   } else {
-    usage();
+    append2simg_usage();
     exit(EXIT_FAILURE);
   }
 
