@@ -1,8 +1,7 @@
 #include "../include/main.hpp"
 
 // Помощь по параметрам командной строки
-void KerVer::show_help()
-{
+void KerVer::show_help() {
     fprintf(stderr, R"EOF(
 kerver
 
@@ -13,9 +12,8 @@ Usage:
 }
 
 // Парсить командную строку
-ParseResult KerVer::parse_cmd_line(int argc, char* argv[])
-{
-    if(argc < 1) {
+ParseResult KerVer::parse_cmd_line(int argc, char *argv[]) {
+    if (argc < 1) {
         show_help();
         return ParseResult::wrong_option;
     }
@@ -35,7 +33,7 @@ union BootHeader {
     vendor_boot_img_hdr_v4 vendor4;
 };
 
-bool checkFileSize(const std::string& filePath) {
+bool checkFileSize(const std::string &filePath) {
     std::ifstream file(filePath, std::ios::binary | std::ios::ate);
     if (!file.is_open()) {
         std::cerr << "Error: Unable to open file: " << filePath << std::endl;
@@ -153,7 +151,8 @@ std::vector<uint8_t> readFromOffset(const std::vector<uint8_t> &data, std::strea
 
     // Приводим offset к типу size_t для корректного использования
     auto offsetSize = static_cast<std::size_t>(offset);
-    return std::vector<uint8_t>(data.begin() + offsetSize, data.end());
+    std::vector<uint8_t> tmp(data.begin() + offsetSize, data.end());
+    return tmp;
 }
 
 // Распаковка gzip в память
@@ -192,19 +191,50 @@ bool decompressGzip(const std::vector<uint8_t> &compressedData, std::vector<uint
 }
 
 // Поиск версии Linux
+/*//Вариант чёткий, но оооочень медленный. Почему до сих пор не запилили нормальные регулярки на C++20+ вопрос открытый
 std::string findLinuxVersion(const std::vector<uint8_t> &data) {
+    // Преобразуем данные в строку, чтобы использовать regex
+    std::string dataStr(data.begin(), data.end());
+
+    // Регулярное выражение для поиска строки версии Linux
+    std::regex versionRegex(R"(Linux version (\d{1,3}\.\d{1,3}\.\d{1,3}))");
+    std::smatch match;
+
+    // Поиск по всему содержимому
+    if (std::regex_search(dataStr, match, versionRegex)) {
+        return match.str(1); // Возвращаем только найденный номер версии
+    }
+
+    return ""; // Возвращаем пустую строку, если версия не найдена
+}
+*/
+std::string findLinuxVersion(const std::vector<uint8_t>& data) {
     const std::string searchStr = "Linux version ";
-    auto it = std::search(data.begin(), data.end(), searchStr.begin(), searchStr.end());
+    const size_t searchStrLen = searchStr.size();
+    const size_t dataSize = data.size();
 
-    if (it != data.end()) {
-        auto start = it + searchStr.size();
-        auto end = std::find(start, data.end(), '\n');
-        std::string versionStr(start, end);
+    size_t pos = 0;
 
-        std::regex versionRegex(R"((\d+\.\d+\.\d+))");
-        std::smatch match;
-        if (std::regex_search(versionStr, match, versionRegex)) {
-            return match.str(1);
+    while (pos < dataSize) {
+        auto foundPos = std::search(data.begin() + pos, data.end(), searchStr.begin(), searchStr.end());
+
+        if (foundPos != data.end()) {
+            pos = std::distance(data.begin(), foundPos) + searchStrLen;
+            if (pos + 8 <= dataSize) {
+                std::string resultStr(data.begin() + pos, data.begin() + pos + 8);
+
+                // Проверка наличия "%s" в строке
+                if (resultStr.find("%s") == std::string::npos) {
+                    std::regex versionRegex(R"((\d{1,3}\.\d{1,3}\.\d{1,3}))");
+                    std::smatch match;
+                    if (std::regex_search(resultStr, match, versionRegex)) {
+                        resultStr = match.str(1); // Возвращаем только найденный номер версии
+                    }
+                    return resultStr;
+                }
+            }
+        } else {
+            break;  // прерываем, если достигнут конец файла
         }
     }
 
@@ -231,7 +261,7 @@ std::string findArchitectureAndBitness(const std::vector<uint8_t> &data) {
     return "Architecture not found.";
 }
 
-void processFile(const std::string& filePath) {
+void processFile(const std::string &filePath) {
     // Проверка размера файла
     if (!checkFileSize(filePath)) {
         return;
@@ -247,6 +277,7 @@ void processFile(const std::string& filePath) {
 
     // Проверка на boot_img или vendor_boot
     if (isBootImage(data) || (isVendorBootImage(data))) {
+        std::cout << "Detected Android boot image..." << linuxVersion << std::endl;
         int version = detectBootHeaderVersion(data);
         if (version < 0) {
             return;
@@ -259,6 +290,10 @@ void processFile(const std::string& filePath) {
         // Расчет смещения ядра на основе page_size и kernel_size
         size_t kernel_offset = header.v0.page_size;
         size_t kernel_size = header.v0.kernel_size;
+
+        if (header.v0.page_size == 0) {
+            kernel_offset = 4096; // page_size is hardcoded to 4096 in boot_img_hdr_v3 and above
+        }
 
         if (data.size() < kernel_offset + kernel_size) {
             std::cerr << "Error: Kernel size exceeds file boundaries\n";
@@ -274,16 +309,14 @@ void processFile(const std::string& filePath) {
             std::cout << "Linux version: " << linuxVersion << std::endl;
             architecture = findArchitectureAndBitness(kernel_data);
             std::cout << architecture << std::endl;
-        }else {
+        } else {
             // Поиск заголовка gzip архива и вывод смещения
             std::streampos gzipOffset = findGzipHeader(kernel_data);
             if (gzipOffset >= 0) {
-                std::cout << "Gzip header found at offset: " << gzipOffset << std::endl;
-                // Чтение данных от смещения до конца файла
-                std::vector<uint8_t> readData = readFromOffset(kernel_data, gzipOffset);
+                std::cout << "Founded kernel in the Gzip archive. Unpacking...\n"; //<< gzipOffset << std::endl;
 
                 // Распаковка gzip
-                if (!decompressGzip(readData, itogKernelData)) {
+                if (!decompressGzip(kernel_data, itogKernelData)) {
                     return;
                 }
                 // Поиск версии и архитектуры напрямую в распакованных бинарных данных
@@ -302,7 +335,7 @@ void processFile(const std::string& filePath) {
             std::cout << "Linux version: " << linuxVersion << std::endl;
             architecture = findArchitectureAndBitness(itogKernelData);
             std::cout << architecture << std::endl;
-        }else {
+        } else {
             // Поиск заголовка gzip архива и вывод смещения
             std::streampos gzipOffset = findGzipHeader(data);
             if (gzipOffset >= 0) {
@@ -325,8 +358,7 @@ void processFile(const std::string& filePath) {
 }
 
 // Основная функция
-ProcessResult KerVer::process()
-{
+ProcessResult KerVer::process() {
 
     std::string file = kernelFile.string();
 
