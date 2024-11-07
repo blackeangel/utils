@@ -122,7 +122,7 @@ bool isBootImage(const std::vector<uint8_t> &data) {
 
 // Проверка формата vendor_boot
 bool isVendorBootImage(const std::vector<uint8_t> &data) {
-    return data.size() >= 12 && std::memcmp(data.data(), "VNDRBOOT", 8) == 0;
+    return data.size() >= 8 && std::memcmp(data.data(), "VNDRBOOT", 8) == 0;
 }
 
 // Проверка на gzip-сжатие
@@ -208,7 +208,7 @@ std::string findLinuxVersion(const std::vector<uint8_t> &data) {
     return ""; // Возвращаем пустую строку, если версия не найдена
 }
 */
-std::string findLinuxVersion(const std::vector<uint8_t>& data) {
+std::string findLinuxVersion(const std::vector<uint8_t> &data) {
     const std::string searchStr = "Linux version ";
     const size_t searchStrLen = searchStr.size();
     const size_t dataSize = data.size();
@@ -274,10 +274,14 @@ void processFile(const std::string &filePath) {
     std::vector<uint8_t> itogKernelData;
     std::string linuxVersion;
     std::string architecture;
-
-    // Проверка на boot_img или vendor_boot
-    if (isBootImage(data) || (isVendorBootImage(data))) {
-        std::cout << "Detected Android boot image..." << linuxVersion << std::endl;
+    if ((isVendorBootImage(data))) {
+        std::cout << "Detected vendor boot image..." << std::endl;
+        std::cerr << "The vendor boot image doesn't have a kernel! Exit" << std::endl;
+        return;
+    }
+    // Проверка на boot_img
+    if (isBootImage(data)) {
+        std::cout << "Detected Android boot image..." << std::endl;
         int version = detectBootHeaderVersion(data);
         if (version < 0) {
             return;
@@ -314,9 +318,9 @@ void processFile(const std::string &filePath) {
             std::streampos gzipOffset = findGzipHeader(kernel_data);
             if (gzipOffset >= 0) {
                 std::cout << "Founded kernel in the Gzip archive. Unpacking...\n"; //<< gzipOffset << std::endl;
-
+                std::vector<uint8_t> readData = readFromOffset(kernel_data, gzipOffset);
                 // Распаковка gzip
-                if (!decompressGzip(kernel_data, itogKernelData)) {
+                if (!decompressGzip(readData, itogKernelData)) {
                     return;
                 }
                 // Поиск версии и архитектуры напрямую в распакованных бинарных данных
