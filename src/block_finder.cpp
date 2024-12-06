@@ -172,7 +172,7 @@ ProcessResult Block_Finder::process() {
     return ProcessResult::ok;
 }
 
-ParseResult SharedBlockDetector::parse_cmd_line(int argc, char *argv[]) {
+ParseResult Block_Finder::parse_cmd_line(int argc, char *argv[]) {
     std::string outputFilename = argc > 1 ? argv[1] : "/sdcard/block_info.txt";
     return ParseResult::ok;
 }
