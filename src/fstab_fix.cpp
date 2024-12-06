@@ -140,9 +140,12 @@ UpdateResult updateFstab(const std::string &filename, bool rw) {
 // Рекурсивная функция для обхода файловой системы и обновления файлов fstab
 void updateFstabRecursively(const std::string &path, bool rw) {
     if (std::filesystem::is_symlink(path)) { return; }
+    int count_find = 0;
     for (const auto &entry: std::filesystem::recursive_directory_iterator(path)) {
-        if (entry.is_regular_file() && !entry.is_symlink() && entry.path().filename().string().find(".fstab") != std::string::npos) {
-            auto name = entry.path().string();
+        std::string fname = entry.path().filename().string();
+        if (entry.is_regular_file() && !entry.is_symlink() && (fname.find(".fstab") != std::string::npos || fname.find("fstab.") != std::string::npos || fname == "fstab")) {
+            count_find++;
+            std::string name = entry.path().string();
             std::cout << "Updating fstab file: " << name << std::endl;
             switch (updateFstab(name, rw)) {
                 case UpdateResult::ok:
@@ -159,6 +162,9 @@ void updateFstabRecursively(const std::string &path, bool rw) {
                     break;
             }
         }
+    }
+    if (count_find == 0) {
+        std::cerr << "No files found in " << path << std::endl;
     }
 }
 

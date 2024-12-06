@@ -29,7 +29,9 @@ where function is:
 
   shared_block_detector <file>
 
-  fstab_fix <directory1> <directory2>
+  fstab_fix [directory1] [directory2]
+
+  block_finder <output_path_file>
 )***";
 
 std::unique_ptr<UtilBase> make_object(const char* name)
@@ -69,6 +71,9 @@ std::unique_ptr<UtilBase> make_object(const char* name)
     }
     if (name == "file_explorer"sv) {
         return std::make_unique<FileExplorer>();
+    }
+    if (name == "block_finder"sv) {
+        return std::make_unique<Block_Finder>();
     }
     return nullptr;
 }
