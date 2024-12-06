@@ -84,7 +84,7 @@ std::string readBlockName(const std::string& blockName) {
     }
 }
 
-std::vector<BlockInfo> getBlockInfos(const std::filesystem::path& devBlockByNameDir, const std::filesystem::path& mapperDir) {
+std::vector<BlockInfo> getBlockInfos(const std::filesystem::path& devBlockByNameDir) {
     std::vector<BlockInfo> blockInfos;
     std::vector<BlockInfo> superSubBlocks;
 
@@ -103,7 +103,8 @@ std::vector<BlockInfo> getBlockInfos(const std::filesystem::path& devBlockByName
 
                 blockInfos.push_back(blockInfo);
 
-                /*if (blockInfo.name == "super" && std::filesystem::exists(mapperDir)) {
+                /*std::filesystem::path mapperDir = findFirstMatchingDirectory("/dev/block", "mapper");
+                if (blockInfo.name == "super" && std::filesystem::exists(mapperDir)) {
                     for (const auto& superEntry : std::filesystem::directory_iterator(mapperDir)) {
                         if (std::filesystem::is_symlink(superEntry)) {
                             if (superEntry.path().filename().string().starts_with("com.android.")) {
@@ -147,9 +148,9 @@ std::vector<BlockInfo> getBlockInfos(const std::filesystem::path& devBlockByName
 ProcessResult Block_Finder::process() {
      try{
          std::filesystem::path devBlockByNameDir = findFirstMatchingDirectory("/dev/block", "by-name");
-         std::filesystem::path mapperDir = findFirstMatchingDirectory("/dev/block", "mapper");
+
         // Get block information
-         std::vector<BlockInfo> blockInfos = getBlockInfos(devBlockByNameDir, mapperDir);
+         std::vector<BlockInfo> blockInfos = getBlockInfos(devBlockByNameDir);
 
         // Write the block information to the output file
         std::ofstream outputFile(outputFilename);
