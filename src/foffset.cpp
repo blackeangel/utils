@@ -7,7 +7,8 @@ void Foffset::show_help() {
 foffset
 
 Usage:
-  utils foffset file hexstring [option...]
+
+  foffset file hexstring [option...]
 where option is:
   -s offset - start offset (DEC or 0xHEX), negative value for offset from end of file
   -l length - search region length (DEC or 0xHEX)

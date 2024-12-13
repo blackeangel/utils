@@ -7,7 +7,8 @@ void FstabFix::show_help() {
 fstab_fix
 
 Usage:
-  utils fstab_fix [-rw] <folder1> <folder2>....<folderN>
+
+  fstab_fix [-rw] <folder1> <folder2>....<folderN>
     Where:
         -rw - replace 'ro' to 'rw' in lines with ext4
         <folder1>...<folderN> - folder where finding fstab's files

@@ -6,7 +6,8 @@ void SharedBlockDetector::show_help() {
 shared_block_detector
 
 Usage:
-  utils shared_block_detector <file>
+
+  shared_block_detector <file>
 )***";
 }
 

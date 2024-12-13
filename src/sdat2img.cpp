@@ -7,6 +7,7 @@ void Sdat2Img::show_help()
 sdat2img
 
 Usage:
+
     sdat2img <transfer_list> <new_dat_file> <output_img_file>
     Where <output_img_file> path to output img file, optionaly
 )EOF");

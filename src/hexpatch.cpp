@@ -8,7 +8,8 @@ R"***(
 hexpatch
 
 Usage:
-  utils hexpatch <file> <hexstring_to_find> <hexstring_to_replace> <way>
+
+  hexpatch <file> <hexstring_to_find> <hexstring_to_replace> <way>
 where way is:
   0 - first find from begin file, by default
   1 - all finds in file

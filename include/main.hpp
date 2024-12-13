@@ -19,11 +19,16 @@
 #include <stack>
 #include <functional>
 #include <unordered_set>
+#include <unordered_map>
+#include <cstdint>
+#include <stdexcept>
 #include "../src/zlib/zlib.h"
 #include "../src/e2fsdroid/ext2fs/ext2_fs.h" // Для работы с ext4
 #include "../src/sparse/sparse_format.h" // Для работы с Android sparse
 #include "../src/erofs/erofs_fs.h" //для работы с EROFS
 #include "bootimg.h" // для работы с VENDOR_BOOT и BOOT
+//#include <lzma.h>       // Для распаковки .xz файлов
+
 
 using namespace std::string_view_literals;
 
@@ -110,7 +115,7 @@ private:
     void initOutputFile(const std::string& output_file);
 
     std::vector<std::pair<int, int>> all_block_sets;
-    unsigned int max_file_size;
+    unsigned int max_file_size = 0;
 
     std::filesystem::path transf_file;
     std::filesystem::path new_dat_file;
@@ -131,9 +136,9 @@ public:
 
 private:
     std::filesystem::path image_file;
-    const char *foffset;
-    const char *file_value;
-    const char *key;
+    const char *foffset = nullptr;
+    const char *file_value = nullptr;
+    const char *key = nullptr;
 };
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -150,9 +155,11 @@ public:
 
 private:
     std::filesystem::path image_file;
-    const char *start_offset;
-    const char *end_offset_length;
+    const char *start_offset = nullptr;
+    const char *end_offset_length = nullptr;
     std::filesystem::path output_dir;
+    std::string startFlag;
+    std::string lengthFlag;
 };
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -169,9 +176,11 @@ public:
 
 private:
     std::filesystem::path image_file;
-    const char *start_offset;
-    const char *end_offset_length;
+    const char *start_offset = nullptr;
+    const char *end_offset_length = nullptr;
     std::filesystem::path output_dir;
+    std::string startFlag;
+    std::string lengthFlag;
 };
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -188,7 +197,7 @@ public:
 
 private:
     std::filesystem::path image_file;
-    const char *start_offset;
+    const char *start_offset = nullptr;
     std::filesystem::path insert_file;
 };
 
@@ -205,7 +214,7 @@ public:
     ProcessResult process() override;
 
 private:
-    const char* filename;               // имя файла
+    const char* filename = nullptr;     // имя файла
     std::vector<char> search_str;       // искомая строка
     long long start_offset = 0;         // начальное смещение
     long long search_size = LLONG_MAX;  // размер блока поиска
@@ -235,7 +244,7 @@ public:
     ProcessResult process() override;
 
 private:
-    const char* image_file;
+    const char* image_file = nullptr;
     std::vector<char> what_find;
     std::vector<char> what_replace;
     int way = 0;
@@ -314,6 +323,22 @@ class Block_Finder : public UtilBase
 
     private:
     std::string outputFilename;
+};
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+class MD1IMG : public UtilBase
+{
+public:
+    // Помощь по параметрам командной строки
+    void show_help() override;
+    // Парсить командную строку
+    ParseResult parse_cmd_line(int argc, char* argv[]) override;
+
+    ProcessResult process() override;
+
+private:
+    std::string mode;
+    std::string input_path;
+    std::filesystem::path output_dir;
 };
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Поиск строки (вектора символов) search_str в файле filename и вызов функции callback для каждого вхождения.
@@ -408,3 +433,6 @@ bool is_erofs(const std::vector<char>& buffer);
 bool is_ext4(const std::vector<char>& buffer);
 
 const char* findValueInVector(const std::vector<char>& buffer, unsigned int value);
+
+// Функция для преобразования строки в число
+size_t parseSize(const std::string &str, bool isHex);

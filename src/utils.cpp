@@ -534,3 +534,22 @@ bool is_sparse(const std::vector<char>& buffer) {
     }
     return false;
 }
+
+// Функция для преобразования строки в число
+size_t parseSize(const std::string &str, bool isHex) {
+    size_t result;
+    std::stringstream ss;
+
+    if (isHex) {
+        ss << std::hex << str;
+    } else {
+        ss << str;
+    }
+
+    ss >> result;
+    if (ss.fail()) {
+        throw std::invalid_argument("Invalid number format: " + str);
+    }
+
+    return result;
+}

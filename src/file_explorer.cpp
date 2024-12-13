@@ -15,7 +15,8 @@ void FileExplorer::show_help()
 file_explorer
 
 Usage:
-  utils file_explorer [directory] [options] [filters]
+
+  file_explorer [directory] [options] [filters]
     Explore files and directories in the specified directory.\n"
                  Options:
                  -d    Show only directories, ignoring filters.

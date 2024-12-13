@@ -13,9 +13,9 @@ where function is:
 
   writekey <image_file> <offset> <-fhb> <file_key_value>
 
-  cut <file> <offset> <offset or length> <cute_dir>
+  cut <file> -d|-h|-o <start_position> -d|-h|-o <length_or_offset> [<output_dir>]
 
-  copy <file> <offset> <offset or length> <copy_dir>
+  copy <file> -d|-h|-o <start_position> -d|-h|-o <length_or_offset> [<output_dir>]
 
   insert <file> <offset> <insert_file>
 
@@ -32,6 +32,8 @@ where function is:
   fstab_fix [directory1] [directory2]
 
   block_finder <output_path_file>
+
+  md1img <pack|unpack> <input> [output_dir]
 )***";
 
 std::unique_ptr<UtilBase> make_object(const char* name)
@@ -75,12 +77,14 @@ std::unique_ptr<UtilBase> make_object(const char* name)
     if (name == "block_finder"sv) {
         return std::make_unique<Block_Finder>();
     }
+    if (name == "md1img"sv) {
+        return std::make_unique<MD1IMG>();
+    }
     return nullptr;
 }
 
 int main(int argc, char* argv[])
 {
-//std::cout << sizeof(long long) << std::endl;
     // Парсинг названия функции или помощи функции
     if (argc < 2 || argv[1] == "help"sv) {
         std::unique_ptr<UtilBase> obj = nullptr;
@@ -111,7 +115,7 @@ int main(int argc, char* argv[])
 //            std::cerr << "Not enough command line parameters!\n";
             return EXIT_FAILURE;
         case ParseResult::wrong_hex:
-            std::cerr << "Wrong hexstring is specified!\n";
+            std::cerr << "Wrong hex string is specified!\n";
             return EXIT_FAILURE;
         case ParseResult::wrong_option:
             std::cerr << "Wrong option or option value is specified!\n";

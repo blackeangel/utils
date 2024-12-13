@@ -3,13 +3,12 @@
 struct BlockInfo {
     std::string name;
     std::string path;
-    uint64_t size;
+    uint64_t size{};
 
     // Comparison operator for sorting by name
     bool operator<(const BlockInfo& other) const {
         return name < other.name;
     }
-    
 };
 
 void Block_Finder::show_help() {
@@ -18,11 +17,14 @@ void Block_Finder::show_help() {
 block_finder
 
 Usage:
-  utils block_finder <output_path_file>
+
+  block_finder <output_path_file>
     <output_path_file> - optionaly - path to output file with informations
                          of blocks. Default: /sdcard/block_info.txt
 )***";
 }
+
+
 
 // Функция для извлечения текстовой части имени устройства
 std::string extractBaseName(const std::string& deviceName) {
@@ -35,7 +37,6 @@ std::string extractBaseName(const std::string& deviceName) {
     }
     return deviceName.substr(0, pos);
 }
-
 
 // Universal function to find the first matching directory
 std::filesystem::path findFirstMatchingDirectory(const std::filesystem::path& rootDir, const std::string& targetName) {
@@ -67,20 +68,22 @@ uint64_t readBlockSize(const std::string& blockName) {
         return 0;
     }
 }
+
+// Function to read the name of the block
 std::string readBlockName(const std::string& blockName) {
     try {
         std::string partname = extractBaseName(blockName);
         std::filesystem::path namePath = std::filesystem::path("/sys/class/block") / blockName / partname / "name";
-        std::ifstream sizeFile(namePath);
-        if (!sizeFile.is_open()) {
-            throw std::ios_base::failure("Failed to open size file");
+        std::ifstream nameFile(namePath);
+        if (!nameFile.is_open()) {
+            throw std::ios_base::failure("Failed to open name file");
         }
-        std::string blockNameInSectors;
-        sizeFile >> blockNameInSectors;
-        return blockNameInSectors; // Convert sectors to bytes (1 sector = 512 bytes)
+        std::string blockNameFromFile;
+        nameFile >> blockNameFromFile;
+        return blockNameFromFile;
     } catch (const std::exception& e) {
         std::cerr << "Error reading block name for " << blockName << ": " << e.what() << '\n';
-        return 0;
+        return "";
     }
 }
 
@@ -94,43 +97,35 @@ std::vector<BlockInfo> getBlockInfos(const std::filesystem::path& devBlockByName
                 continue;
             }
             if (std::filesystem::is_symlink(entry)) {
-                BlockInfo blockInfo;
-                blockInfo.name = entry.path().filename().string();
-                blockInfo.path = std::filesystem::canonical(entry).string();
+                try {
+                    if (!std::filesystem::exists(entry)) {
+                        continue; // Skip if the target does not exist
+                    }
 
-                std::string blockName = std::filesystem::path(blockInfo.path).filename().string();
-                blockInfo.size = readBlockSize(blockName);
+                    BlockInfo blockInfo;
+                    blockInfo.name = entry.path().filename().string();
+                    blockInfo.path = std::filesystem::canonical(entry).string();
 
-                blockInfos.push_back(blockInfo);
+                    std::string blockName = std::filesystem::path(blockInfo.path).filename().string();
+                    blockInfo.size = readBlockSize(blockName);
 
-                /*std::filesystem::path mapperDir = findFirstMatchingDirectory("/dev/block", "mapper");
-                if (blockInfo.name == "super" && std::filesystem::exists(mapperDir)) {
-                    for (const auto& superEntry : std::filesystem::directory_iterator(mapperDir)) {
-                        if (std::filesystem::is_symlink(superEntry)) {
-                            if (superEntry.path().filename().string().starts_with("com.android.")) {
-                                continue;
-                            }
+                    blockInfos.push_back(blockInfo);
+
+                    if (blockInfo.name == "super") {
+                        std::filesystem::path holdersPath = std::filesystem::path("/sys/class/block") / blockName / "holders";
+                        for (const auto& file : std::filesystem::directory_iterator(holdersPath)) {
+                            std::string fileName = std::filesystem::path(file.path()).filename().string();
+
                             BlockInfo subBlockInfo;
-                            std::filesystem::path linkPath = std::filesystem::read_symlink(superEntry.path());
-                            subBlockInfo.name = superEntry.path().filename().string() + "(" + blockInfo.name + ")";
-                            subBlockInfo.path = linkPath.string();
-                            subBlockInfo.size = readBlockSize(linkPath.filename().string());
+                            subBlockInfo.name = readBlockName(fileName) + "(" + blockInfo.name + ")";
+                            subBlockInfo.path = "/dev/block/" + fileName;
+                            subBlockInfo.size = readBlockSize(fileName);
+
                             superSubBlocks.push_back(subBlockInfo);
                         }
                     }
-                }*/
-
-                if (blockInfo.name == "super") {
-                    std::vector<std::string> subblocksname;
-                    std::filesystem::path holdersPath = std::filesystem::path("/sys/class/block") / blockName / "holders";
-                    BlockInfo subBlockInfo;
-                    for (const auto& file : std::filesystem::directory_iterator(holdersPath)) {
-                        std::string fileName = std::filesystem::path(file.path()).filename().string();
-                        subBlockInfo.name = readBlockName(fileName) + "(" + blockInfo.name + ")";
-                        subBlockInfo.path = "/dev/block/" + fileName;
-                        subBlockInfo.size = readBlockSize(fileName);
-                        superSubBlocks.push_back(subBlockInfo);
-                    }
+                } catch (const std::exception& e) {
+                    std::cerr << "Error processing entry " << entry.path() << ": " << e.what() << '\n';
                 }
             }
         }
