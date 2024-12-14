@@ -22,13 +22,17 @@
 #include <unordered_map>
 #include <cstdint>
 #include <stdexcept>
+#include <cmath>
+#include <iomanip>
 #include "../src/zlib/zlib.h"
 #include "../src/e2fsdroid/ext2fs/ext2_fs.h" // Для работы с ext4
 #include "../src/sparse/sparse_format.h" // Для работы с Android sparse
 #include "../src/erofs/erofs_fs.h" //для работы с EROFS
 #include "bootimg.h" // для работы с VENDOR_BOOT и BOOT
 //#include <lzma.h>       // Для распаковки .xz файлов
-
+#include "../src/libpng/png.h"
+#include "../src/minizip/zip.h"
+#include "../src/minizip/unzip.h"
 
 using namespace std::string_view_literals;
 
@@ -339,6 +343,22 @@ private:
     std::string mode;
     std::string input_path;
     std::filesystem::path output_dir;
+};
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+class LOGO_MTK : public UtilBase
+{
+public:
+    // Помощь по параметрам командной строки
+    void show_help() override;
+    // Парсить командную строку
+    ParseResult parse_cmd_line(int argc, char* argv[]) override;
+
+    ProcessResult process() override;
+
+private:
+    std::string mode;
+    std::string logo_file;
+    std::string dir;
 };
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Поиск строки (вектора символов) search_str в файле filename и вызов функции callback для каждого вхождения.

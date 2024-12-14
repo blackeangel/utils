@@ -34,6 +34,8 @@ where function is:
   block_finder <output_path_file>
 
   md1img <pack|unpack> <input> [output_dir]
+
+  logo_mtk <unpack/pack> <file/folder> <folder/file>
 )***";
 
 std::unique_ptr<UtilBase> make_object(const char* name)
@@ -79,6 +81,9 @@ std::unique_ptr<UtilBase> make_object(const char* name)
     }
     if (name == "md1img"sv) {
         return std::make_unique<MD1IMG>();
+    }
+    if (name == "logo_mtk"sv) {
+        return std::make_unique<LOGO_MTK>();
     }
     return nullptr;
 }
