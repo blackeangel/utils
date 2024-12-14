@@ -68,6 +68,63 @@ src/sparse/sparse_read.cpp \
 
 include $(BUILD_STATIC_LIBRARY)
 
+##############################################################################
+# libpng
+##############################################################################
+include $(CLEAR_VARS)
+
+LOCAL_MODULE := libpng
+
+LOCAL_CFLAGS := \
+    -DHAVE_HIDDEN \
+    -DZLIB_CONST
+    
+LOCAL_C_INCLUDES := \
+         src/libpng \
+            
+LOCAL_SRC_FILES += \
+src/libpng/png.c \
+src/libpng/pngerror.c \
+src/libpng/pngget.c \
+src/libpng/pngmem.c \
+src/libpng/pngpread.c \
+src/libpng/pngread.c \
+src/libpng/pngrio.c \
+src/libpng/pngrtran.c \
+src/libpng/pngrutil.c \
+src/libpng/pngset.c \
+src/libpng/pngtrans.c \
+src/libpng/pngwio.c \
+src/libpng/pngwrite.c \
+src/libpng/pngwtran.c \
+src/libpng/pngwutil.c \
+
+include $(BUILD_STATIC_LIBRARY)
+
+##############################################################################
+# minizip
+##############################################################################
+include $(CLEAR_VARS)
+
+LOCAL_MODULE := libminizip
+
+LOCAL_CFLAGS := \
+    -DHAVE_HIDDEN \
+    -DZLIB_CONST
+
+LOCAL_C_INCLUDES := \
+        src/minizip \
+
+LOCAL_SRC_FILES += \
+src/minizip/ioapi.c \
+src/minizip/miniunz.c \
+src/minizip/minizip.c \
+src/minizip/mztools.c \
+src/minizip/unzip.c \
+src/minizip/zip.c \
+
+include $(BUILD_STATIC_LIBRARY)
+
 #####################################################################################
 #utils
 #####################################################################################
@@ -90,7 +147,9 @@ LOCAL_SRC_FILES := $(wildcard src/*.cpp) \
 
 LOCAL_STATIC_LIBRARIES := \
 z \
-sparse
+sparse \
+libpng \
+minizip
 
 include $(BUILD_EXECUTABLE)
 

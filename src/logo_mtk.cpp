@@ -1,5 +1,4 @@
 #include "../include/main.hpp"
-
 struct MTK_logo {
     struct {
         uint8_t start[4];               // offset 0x0 start file                            |
@@ -997,8 +996,9 @@ void unpack_logo(const std::string &logo_file, const std::string &output_dir) {
 
     int picture_count;
     int block_size;
+
     // Создаем экземпляр структуры MTK_logo для хранения данных
-    MTK_logo data;
+    MTK_logo data{};
 
     // Читаем структуру MTK_logo из файла
     if (read_MTK_logo_from_file(logo_file, data)) {
@@ -1060,11 +1060,8 @@ void unpack_logo(const std::string &logo_file, const std::string &output_dir) {
         int height = guessed_resolution.height; // Замените это на фактическую высоту изображения
 
         // Создаем файл PNG
-        //write_png_file(filename.data(), width, height, data);
-
         try {
             // Конвертируем данные RGBA в данные BGRA BE
-            //std::vector<unsigned char> bgra_data = rgba_to_bgra(data, width, height);
             std::vector<unsigned char> bgra_data = rgba_to_bgra(data);
             // Сохраняем данные BGRA в PNG файл
             write_png_file(filename, width, height, bgra_data);

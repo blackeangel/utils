@@ -24,6 +24,7 @@
 #include <stdexcept>
 #include <cmath>
 #include <iomanip>
+#include <map>
 #include "../src/zlib/zlib.h"
 #include "../src/e2fsdroid/ext2fs/ext2_fs.h" // Для работы с ext4
 #include "../src/sparse/sparse_format.h" // Для работы с Android sparse

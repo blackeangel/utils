@@ -71,4 +71,14 @@ file_explorer [directory] [options] [filters]
                  By default, the following filters are applied to files: .img, .dat, .br, .list.
                  Additional filters can be specified after the directory path.
                  "Example: file_explorer /path/to/directory .txt .pdf
+shared_block_detector <file>
+
+fstab_fix [directory1] [directory2]
+
+block_finder <output_path_file>
+
+md1img <pack|unpack> <input> [output_dir]
+
+logo_mtk <unpack/pack> <file/folder> <folder/file>
+
 ```
