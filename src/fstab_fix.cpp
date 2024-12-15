@@ -112,20 +112,22 @@ UpdateResult updateFstab(const std::string &filename, bool rw) {
             if (!(file << entry.line << '\n')) {
                 return UpdateResult::writeError;
             }
-            entry.line[entry.type_pos + 1] = 'r';
+            /*entry.line[entry.type_pos + 1] = 'r';
             entry.line[entry.type_pos + 2] = 'o';
             entry.line[entry.type_pos + 3] = 'f';
-            entry.line[entry.type_pos + 4] = 's';
-            entry.type.clear();  // entry.type = "erofs"
+            entry.line[entry.type_pos + 4] = 's';*/
+            entry.line = replaceAll(entry.line," ext4 ", " erofs ");
+            entry.type.clear();  // entry.type = "erofs";
         } else if (entry.type == "erofs" && !ext4Set.contains(std::make_pair(entry.source, entry.mountPoint))) {
             if (!(file << entry.line << '\n')) {
                 return UpdateResult::writeError;
             }
-            entry.line[entry.type_pos + 1] = 'x';
+            /*entry.line[entry.type_pos + 1] = 'x';
             entry.line[entry.type_pos + 2] = 't';
             entry.line[entry.type_pos + 3] = '4';
-            entry.line[entry.type_pos + 4] = ' ';
-            entry.type.clear();  // entry.type = "ext4"
+            entry.line[entry.type_pos + 4] = ' ';*/
+            entry.line = replaceAll(entry.line," erofs ", " ext4 ");
+            entry.type.clear();  // entry.type = "ext4";
         }
         if (rw) {
             updateRights(entry);
