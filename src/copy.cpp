@@ -17,7 +17,6 @@ Usage:
 
 // Парсить командную строку
 ParseResult Copy::parse_cmd_line(int argc, char *argv[]) {
-
     if (argc != 5 && argc != 6) {
         show_help();
         return ParseResult::not_enough;
@@ -30,12 +29,12 @@ ParseResult Copy::parse_cmd_line(int argc, char *argv[]) {
     end_offset_length = argv[4];
 
     if (argc == 6) {
-        output_dir = argv[5];
+        output_file = argv[5];
     } else {
-        output_dir = image_file.parent_path();
+        output_file = image_file.parent_path() / (image_file.stem().string() + "_copied" + image_file.extension().string());
     }
 
-     return ParseResult::ok;
+    return ParseResult::ok;
 }
 
 // Основная функция
@@ -53,15 +52,20 @@ ProcessResult Copy::process() {
         bool lengthIsHex = false;
         bool startIsOffset = false;
         bool lengthIsOffset = false;
-        if (startFlag == "-d") {startIsDec = true;}
-        if (lengthFlag == "-d") {lengthIsDec = true;}
-        if (startFlag == "-h") {startIsHex = true;}
-        if (lengthFlag == "-h") {lengthIsHex = true;}
-        if (startFlag == "-o") {startIsOffset = true;}
-        if (lengthFlag == "-o") {lengthIsOffset = true;}
+        if (startFlag == "-d") { startIsDec = true; }
+        if (lengthFlag == "-d") { lengthIsDec = true; }
+        if (startFlag == "-h") { startIsHex = true; }
+        if (lengthFlag == "-h") { lengthIsHex = true; }
+        if (startFlag == "-o") { startIsOffset = true; }
+        if (lengthFlag == "-o") { lengthIsOffset = true; }
 
         // Преобразование значений
-        size_t startPos = parseSize(start_offset, startIsHex);
+        size_t startPos;
+        if (startIsHex || startIsOffset) {
+            startPos = parseSize(start_offset, true);
+        } else {
+            startPos = parseSize(start_offset, false);
+        }
         size_t length;
 
         if (lengthIsOffset) {
@@ -69,14 +73,11 @@ ProcessResult Copy::process() {
             if (offset <= startPos) {
                 throw std::invalid_argument("Offset must be greater than the start position.");
             }
-            length = offset;//offset - startPos;
+            length = offset; //offset - startPos;
         } else {
             length = startPos + parseSize(end_offset_length, lengthIsHex);
         }
 
-        std::string new_image_name = image_file.stem().string() + "_copied" + image_file.extension().string();
-        std::filesystem::path output_file = output_dir;
-        output_file /= new_image_name;
         std::ofstream out(output_file, std::ios::binary);
         std::ifstream in(image_file, std::ios::binary);
         if (in.is_open() && out.is_open()) {

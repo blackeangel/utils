@@ -13,9 +13,9 @@ where function is:
 
   writekey <image_file> <offset> <-fhb> <file_key_value>
 
-  cut <file> -d|-h|-o <start_position> -d|-h|-o <length_or_offset> [<output_dir>]
+  cut <file> -d|-h|-o <start_position> -d|-h|-o <length_or_offset> [<output_file>]
 
-  copy <file> -d|-h|-o <start_position> -d|-h|-o <length_or_offset> [<output_dir>]
+  copy <file> -d|-h|-o <start_position> -d|-h|-o <length_or_offset> [<output_file>]
 
   insert <file> <offset> <insert_file>
 

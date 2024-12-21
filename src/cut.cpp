@@ -29,9 +29,9 @@ ParseResult Cut::parse_cmd_line(int argc, char *argv[]) {
     end_offset_length = argv[4];
 
     if (argc == 6) {
-        output_dir = argv[5];
+        output_file = argv[5];
     } else {
-        output_dir = image_file.parent_path();
+        output_file = image_file.parent_path() / (image_file.stem().string() + "_cuted" + image_file.extension().string());
     }
 
     return ParseResult::ok;
@@ -137,7 +137,13 @@ ProcessResult Cut::process() {
         if (lengthFlag == "-o") { lengthIsOffset = true; }
 
         // Преобразование значений
-        size_t startPos = parseSize(start_offset, startIsHex);
+        size_t startPos;
+        if (startIsHex || startIsOffset) {
+            startPos = parseSize(start_offset, true);
+        } else {
+            startPos = parseSize(start_offset, false);
+        }
+
         size_t length;
 
         if (lengthIsOffset) {
@@ -149,11 +155,6 @@ ProcessResult Cut::process() {
         } else {
             length = startPos + parseSize(end_offset_length, lengthIsHex);
         }
-
-        //новый файл в который кладём вырезанное
-        std::string new_image_name = image_file.stem().string() + "_cuted" + image_file.extension().string();
-        std::filesystem::path output_file = output_dir;
-        output_file /= new_image_name;
 
         // Вырезание данных
         cutBinaryData(image_file.string(), startPos, length, output_file.string());

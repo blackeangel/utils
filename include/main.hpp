@@ -162,7 +162,7 @@ private:
     std::filesystem::path image_file;
     const char *start_offset = nullptr;
     const char *end_offset_length = nullptr;
-    std::filesystem::path output_dir;
+    std::filesystem::path output_file;
     std::string startFlag;
     std::string lengthFlag;
 };
@@ -183,7 +183,7 @@ private:
     std::filesystem::path image_file;
     const char *start_offset = nullptr;
     const char *end_offset_length = nullptr;
-    std::filesystem::path output_dir;
+    std::filesystem::path output_file;
     std::string startFlag;
     std::string lengthFlag;
 };
