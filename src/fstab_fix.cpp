@@ -3,15 +3,16 @@
 // Помощь по параметрам командной строки
 void FstabFix::show_help() {
     std::cout <<
-              R"***(
+            R"***(
 fstab_fix
 
 Usage:
 
-  fstab_fix [-rw] <folder1> <folder2>....<folderN>
+  fstab_fix [-rw] <folder1_or_file1> <folder2_or_file2>....<folderN_or_fileN>
     Where:
         -rw - replace 'ro' to 'rw' in lines with ext4
         <folder1>...<folderN> - folder where finding fstab's files
+        <file1>...<fileN>     - path to fstab's files
 )***";
 }
 
@@ -21,9 +22,9 @@ struct FstabEntry {
     std::string source;
     std::string mountPoint;
     std::string type;
-    size_t type_pos{};  // позиция type в line
+    size_t type_pos{}; // позиция type в line
     std::string mountFlags;
-    size_t mountFlags_pos{};  // позиция mountFlags в line
+    size_t mountFlags_pos{}; // позиция mountFlags в line
     std::string fsMgrFlags;
 
     // Конструктор по умолчанию
@@ -51,7 +52,7 @@ private:
 
 // Специализация std::hash для двух строк
 template<>
-struct std::hash<std::pair<std::string, std::string>> {
+struct std::hash<std::pair<std::string, std::string> > {
     std::size_t operator()(const std::pair<std::string, std::string> &s) const noexcept {
         std::size_t h1 = std::hash<std::string>{}(s.first);
         std::size_t h2 = std::hash<std::string>{}(s.second);
@@ -63,13 +64,13 @@ struct std::hash<std::pair<std::string, std::string>> {
 void updateRights(FstabEntry &entry) {
     if (entry.type != "ext4") { return; }
     if (entry.mountFlags.starts_with("ro")) {
-        entry.line[entry.mountFlags_pos + 1] = 'w';  // в начале строки
+        entry.line[entry.mountFlags_pos + 1] = 'w'; // в начале строки
     } else if (entry.mountFlags.ends_with("ro")) {
-        entry.line[entry.mountFlags_pos + entry.mountFlags.size() - 1] = 'w';  // в конце строки
+        entry.line[entry.mountFlags_pos + entry.mountFlags.size() - 1] = 'w'; // в конце строки
     } else {
         size_t pos = entry.mountFlags.find(",ro,");
         if (pos != std::string::npos) {
-            entry.line[entry.mountFlags_pos + pos + 2] = 'w';  // в середине строки
+            entry.line[entry.mountFlags_pos + pos + 2] = 'w'; // в середине строки
         }
     }
 }
@@ -79,9 +80,9 @@ UpdateResult updateFstab(const std::string &filename, bool rw) {
     // Вектор для хранения исходных строки и записей fstab
     std::vector<FstabEntry> entries;
     // Множество для хранения путей + точек монтирования (только для ext4)
-    std::unordered_set<std::pair<std::string, std::string>> ext4Set;
+    std::unordered_set<std::pair<std::string, std::string> > ext4Set;
     // Множество для хранения путей + точек монтирования (только для erofs)
-    std::unordered_set<std::pair<std::string, std::string>> erofsSet;
+    std::unordered_set<std::pair<std::string, std::string> > erofsSet;
 
     // Открываем файл
     std::fstream file(filename, std::ios::in);
@@ -116,8 +117,8 @@ UpdateResult updateFstab(const std::string &filename, bool rw) {
             entry.line[entry.type_pos + 2] = 'o';
             entry.line[entry.type_pos + 3] = 'f';
             entry.line[entry.type_pos + 4] = 's';*/
-            entry.line = replaceAll(entry.line," ext4 ", " erofs ");
-            entry.type.clear();  // entry.type = "erofs";
+            entry.line = replaceAll(entry.line, " ext4 ", " erofs ");
+            entry.type.clear(); // entry.type = "erofs";
         } else if (entry.type == "erofs" && !ext4Set.contains(std::make_pair(entry.source, entry.mountPoint))) {
             if (!(file << entry.line << '\n')) {
                 return UpdateResult::writeError;
@@ -126,8 +127,8 @@ UpdateResult updateFstab(const std::string &filename, bool rw) {
             entry.line[entry.type_pos + 2] = 't';
             entry.line[entry.type_pos + 3] = '4';
             entry.line[entry.type_pos + 4] = ' ';*/
-            entry.line = replaceAll(entry.line," erofs ", " ext4 ");
-            entry.type.clear();  // entry.type = "ext4";
+            entry.line = replaceAll(entry.line, " erofs ", " ext4 ");
+            entry.type.clear(); // entry.type = "ext4";
         }
         if (rw) {
             updateRights(entry);
@@ -171,6 +172,25 @@ void updateFstabRecursively(const std::string &path, bool rw) {
     }
 }
 
+void updateFstabFiles(const std::string &path, bool rw) {
+    std::string name = path;
+    std::cout << "Updating fstab file: " << name << std::endl;
+    switch (updateFstab(name, rw)) {
+        case UpdateResult::ok:
+            std::cout << "File updated successfully." << std::endl;
+            break;
+        case UpdateResult::openError:
+            std::cerr << "Unable to open file." << std::endl;
+            break;
+        case UpdateResult::createError:
+            std::cerr << "Unable to create file." << std::endl;
+            break;
+        case UpdateResult::writeError:
+            std::cerr << "Unable to write file." << std::endl;
+            break;
+    }
+}
+
 // Парсить командную строку
 ParseResult FstabFix::parse_cmd_line(int argc, char *argv[]) {
     if (argc < 1) {
@@ -191,7 +211,15 @@ ParseResult FstabFix::parse_cmd_line(int argc, char *argv[]) {
 
 ProcessResult FstabFix::process() {
     for (const auto &dir: directories) {
-        updateFstabRecursively(dir, rw);
+        std::filesystem::path current_path(dir);
+        if (std::filesystem::exists(current_path)) {
+            if (std::filesystem::is_regular_file(current_path)) {
+                updateFstabFiles(dir, rw);
+            }
+            if (std::filesystem::is_directory(current_path)) {
+                updateFstabRecursively(dir, rw);
+            }
+        }
     }
     return ProcessResult::ok;
 }

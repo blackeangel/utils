@@ -29,7 +29,7 @@ where function is:
 
   shared_block_detector <file>
 
-  fstab_fix [directory1] [directory2]
+  fstab_fix [-rw] <folder1_or_file1> <folder2_or_file2>....<folderN_or_fileN>
 
   block_finder <output_path_file>
 
