@@ -25,6 +25,10 @@
 #include <cmath>
 #include <iomanip>
 #include <map>
+#include <bit>
+#include <unistd.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 #include "../src/zlib/zlib.h"
 #include "../src/e2fsdroid/ext2fs/ext2_fs.h" // Для работы с ext4
 #include "../src/sparse/sparse_format.h" // Для работы с Android sparse
@@ -360,6 +364,26 @@ private:
     std::string mode;
     std::string logo_file;
     std::string dir;
+};
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+class CHUNK_SPLIT : public UtilBase
+{
+public:
+    // Помощь по параметрам командной строки
+    void show_help() override;
+    // Парсить командную строку
+    ParseResult parse_cmd_line(int argc, char* argv[]) override;
+
+    ProcessResult process() override;
+
+private:
+    std::string DEFAULT_CHUNK_SIZE = "64K";
+    std::string suffix = ".chunk.%02d";
+    std::string block_size_str = "4K";
+    std::string chunk_size_str;
+    size_t block_size = 0, parts_count = 0, chunk_size = 0;
+    std::string input_path;
+    std::filesystem::path output_dir;
 };
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Поиск строки (вектора символов) search_str в файле filename и вызов функции callback для каждого вхождения.

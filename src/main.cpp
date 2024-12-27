@@ -36,6 +36,8 @@ where function is:
   md1img <pack|unpack> <input> [output_dir]
 
   logo_mtk <unpack/pack> <file/folder> <folder/file>
+  
+  chunk_split [-s suffix] [-B block_size] [-C chunk_size] [-P parts_count] input_file [output_dir]
 )***";
 
 std::unique_ptr<UtilBase> make_object(const char* name)
@@ -84,6 +86,9 @@ std::unique_ptr<UtilBase> make_object(const char* name)
     }
     if (name == "logo_mtk"sv) {
         return std::make_unique<LOGO_MTK>();
+    }
+    if (name == "chunk_split"sv) {
+        return std::make_unique<CHUNK_SPLIT>();
     }
     return nullptr;
 }
