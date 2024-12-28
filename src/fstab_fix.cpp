@@ -83,7 +83,7 @@ UpdateResult updateFstab(const std::string &filename, bool rw) {
     std::unordered_set<std::pair<std::string, std::string> > ext4Set;
     // Множество для хранения путей + точек монтирования (только для erofs)
     std::unordered_set<std::pair<std::string, std::string> > erofsSet;
-
+    bool updated = false;
     // Открываем файл
     std::fstream file(filename, std::ios::in);
     if (!file.is_open()) {
@@ -108,52 +108,61 @@ UpdateResult updateFstab(const std::string &filename, bool rw) {
     if (!file.is_open()) {
         return UpdateResult::createError;
     }
+
     for (auto &entry: entries) {
         if (entry.type == "ext4" && !erofsSet.contains(std::make_pair(entry.source, entry.mountPoint))) {
             if (!(file << entry.line << '\n')) {
                 return UpdateResult::writeError;
             }
-            /*entry.line[entry.type_pos + 1] = 'r';
-            entry.line[entry.type_pos + 2] = 'o';
-            entry.line[entry.type_pos + 3] = 'f';
-            entry.line[entry.type_pos + 4] = 's';*/
             entry.line = replaceAll(entry.line, " ext4 ", " erofs ");
             entry.type.clear(); // entry.type = "erofs";
+            updated = true;
         } else if (entry.type == "erofs" && !ext4Set.contains(std::make_pair(entry.source, entry.mountPoint))) {
             if (!(file << entry.line << '\n')) {
                 return UpdateResult::writeError;
             }
-            /*entry.line[entry.type_pos + 1] = 'x';
-            entry.line[entry.type_pos + 2] = 't';
-            entry.line[entry.type_pos + 3] = '4';
-            entry.line[entry.type_pos + 4] = ' ';*/
             entry.line = replaceAll(entry.line, " erofs ", " ext4 ");
             entry.type.clear(); // entry.type = "ext4";
+            updated = true;
         }
         if (rw) {
             updateRights(entry);
+            updated = true;
         }
         if (!(file << entry.line << '\n')) {
             return UpdateResult::writeError;
         }
+    }
+    if (!updated) {
+        return UpdateResult::scipped;
     }
 
     return UpdateResult::ok;
 }
 
 // Рекурсивная функция для обхода файловой системы и обновления файлов fstab
-void updateFstabRecursively(const std::string &path, bool rw) {
+void updateFstabRecursively(const std::string &path, bool rw, std::filesystem::path backup_folder) {
     if (std::filesystem::is_symlink(path)) { return; }
     int count_find = 0;
     for (const auto &entry: std::filesystem::recursive_directory_iterator(path)) {
         std::string fname = entry.path().filename().string();
         if (entry.is_regular_file() && !entry.is_symlink() && (fname.find(".fstab") != std::string::npos || fname.find("fstab.") != std::string::npos || fname == "fstab")) {
             count_find++;
-            std::string name = entry.path().string();
-            std::cout << "Updating fstab file: " << name << std::endl;
-            switch (updateFstab(name, rw)) {
+            std::filesystem::path name = entry;
+
+            if (!backup_folder.empty()) {
+                // Формируем полный путь для копии файла
+                std::filesystem::path destination_file = backup_folder / name.filename();
+                // Копируем файл
+                if (std::filesystem::exists(destination_file)) {
+                    std::filesystem::remove(destination_file); // Удаляем файл, если он существует
+                }
+                std::filesystem::copy(name, destination_file, std::filesystem::copy_options::overwrite_existing);
+            }
+
+            switch (updateFstab(name.string(), rw)) {
                 case UpdateResult::ok:
-                    std::cout << "File updated successfully." << std::endl;
+                    std::cout << "Updated file " << name.string() << std::endl;
                     break;
                 case UpdateResult::openError:
                     std::cerr << "Unable to open file." << std::endl;
@@ -172,12 +181,23 @@ void updateFstabRecursively(const std::string &path, bool rw) {
     }
 }
 
-void updateFstabFiles(const std::string &path, bool rw) {
-    std::string name = path;
-    std::cout << "Updating fstab file: " << name << std::endl;
-    switch (updateFstab(name, rw)) {
+void updateFstabFiles(const std::string &path, bool rw, std::filesystem::path backup_folder) {
+    std::filesystem::path name = path;
+
+    if (!backup_folder.empty()) {
+        // Формируем полный путь для копии файла
+        std::filesystem::path destination_file = backup_folder / name.filename();
+
+        if (std::filesystem::exists(destination_file)) {
+            std::filesystem::remove(destination_file); // Удаляем файл, если он существует
+        }
+        // Копируем файл
+        std::filesystem::copy(name, destination_file, std::filesystem::copy_options::overwrite_existing);
+    }
+
+    switch (updateFstab(name.string(), rw)) {
         case UpdateResult::ok:
-            std::cout << "File updated successfully." << std::endl;
+            std::cout << "Updated file " << name.string() << std::endl;
             break;
         case UpdateResult::openError:
             std::cerr << "Unable to open file." << std::endl;
@@ -197,15 +217,31 @@ ParseResult FstabFix::parse_cmd_line(int argc, char *argv[]) {
         show_help();
         return ParseResult::wrong_option;
     }
-    int i = 0;
-    if (std::string(argv[0]) == "-rw") {
-        rw = true;
-        i = 1;
+
+    for (int i = 0; i < argc; ++i) {
+        std::string arg = argv[i];
+
+        if (arg == "-rw") {
+            rw = true;
+            i = 1;
+        } else if (arg == "-b") {
+            if (i + 1 < argc) {
+                // Проверяем наличие пути после -b
+                backup_folder = argv[++i]; // Сохраняем путь
+                //i += 1;
+                if (!std::filesystem::exists(backup_folder) || !std::filesystem::is_directory(backup_folder)) {
+                    std::cerr << "Error: " << backup_folder << " not exists or isn't folder.\n";
+                    return ParseResult::wrong_option;
+                }
+            } else {
+                std::cerr << "Error: path for '-b' not selected.\n";
+                return ParseResult::wrong_option;
+            }
+        } else {
+            directories.emplace_back(arg);
+        }
     }
-    // Обновляем файлы fstab в указанных директориях и всех их поддиректориях
-    for (; i < argc; ++i) {
-        directories.emplace_back(argv[i]);
-    }
+
     return ParseResult::ok;
 }
 
@@ -214,10 +250,10 @@ ProcessResult FstabFix::process() {
         std::filesystem::path current_path(dir);
         if (std::filesystem::exists(current_path)) {
             if (std::filesystem::is_regular_file(current_path)) {
-                updateFstabFiles(dir, rw);
+                updateFstabFiles(dir, rw, backup_folder);
             }
             if (std::filesystem::is_directory(current_path)) {
-                updateFstabRecursively(dir, rw);
+                updateFstabRecursively(dir, rw, backup_folder);
             }
         }
     }

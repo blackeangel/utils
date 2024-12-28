@@ -7,37 +7,37 @@ where function is:
   help - show this help
   help function - show function help
 
-  delgaaps <folder> <file_list>
+  block_finder <output_path_file>
 
-  sdat2img <transfer_list> <new_dat_file> <output_img_file>
-
-  writekey <image_file> <offset> <-fhb> <file_key_value>
-
-  cut <file> -d|-h|-o <start_position> -d|-h|-o <length_or_offset> [<output_file>]
+  chunk_split [-s suffix] [-B block_size] [-C chunk_size] [-P parts_count] input_file [output_dir]
 
   copy <file> -d|-h|-o <start_position> -d|-h|-o <length_or_offset> [<output_file>]
 
-  insert <file> <offset> <insert_file>
+  cut <file> -d|-h|-o <start_position> -d|-h|-o <length_or_offset> [<output_file>]
 
-  foffset <file> <hexstring> [option...]
-
-  hexpatch <file> <what_find in hex> <what_replace in hex> <way>
-
-  kerver <kernel file>
+  delgaaps <folder> <file_list>
 
   file_explorer [directory] [options] [filters]
 
-  shared_block_detector <file>
+  foffset <file> <hexstring> [option...]
 
   fstab_fix [-rw] <folder1_or_file1> <folder2_or_file2>....<folderN_or_fileN>
 
-  block_finder <output_path_file>
+  hexpatch <file> <what_find in hex> <what_replace in hex> <way>
+
+  insert <file> <offset> <insert_file>
+
+  kerver <kernel file>
+
+  logo_mtk <unpack/pack> <file/folder> <folder/file>
 
   md1img <pack|unpack> <input> [output_dir]
 
-  logo_mtk <unpack/pack> <file/folder> <folder/file>
-  
-  chunk_split [-s suffix] [-B block_size] [-C chunk_size] [-P parts_count] input_file [output_dir]
+  sdat2img <transfer_list> <new_dat_file> <output_img_file>
+
+  shared_block_detector <file>
+
+  writekey <image_file> <offset> <-fhb> <file_key_value>
 )***";
 
 std::unique_ptr<UtilBase> make_object(const char* name)
