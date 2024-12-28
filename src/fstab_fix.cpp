@@ -8,9 +8,10 @@ fstab_fix
 
 Usage:
 
-  fstab_fix [-rw] <folder1_or_file1> <folder2_or_file2>....<folderN_or_fileN>
+ fstab_fix [-rw] [-b /path/to/folder] <folder1_or_file1> <folder2_or_file2>....<folderN_or_fileN>
     Where:
         -rw - replace 'ro' to 'rw' in lines with ext4
+        -b  - folder path to backup of fstab file
         <folder1>...<folderN> - folder where finding fstab's files
         <file1>...<fileN>     - path to fstab's files
 )***";

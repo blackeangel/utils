@@ -21,7 +21,7 @@ where function is:
 
   foffset <file> <hexstring> [option...]
 
-  fstab_fix [-rw] <folder1_or_file1> <folder2_or_file2>....<folderN_or_fileN>
+  fstab_fix [-rw] [-b /path/to/folder] <folder1_or_file1> <folder2_or_file2>....<folderN_or_fileN>
 
   hexpatch <file> <what_find in hex> <what_replace in hex> <way>
 
