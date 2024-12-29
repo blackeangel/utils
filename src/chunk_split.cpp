@@ -78,7 +78,9 @@ int parse_size(std::string size_str, size_t &size) {
         return 0;
     }
 
-    std::string_view suffix = size_str.substr(idx);
+    std::string temp_suffix = size_str.substr(idx);
+    std::string_view suffix = temp_suffix;
+
     size_t mult = 0;
 
     if (suffix == "c") {

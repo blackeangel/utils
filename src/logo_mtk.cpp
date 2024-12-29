@@ -279,8 +279,9 @@ void copy_part_file(const std::string &logo_file, const std::string &output_dir,
     }
 
 // Читаем первые bytes_to_copy байт из входного файла
-    char buffer[bytes_to_copy];
-    input_file.read(buffer, bytes_to_copy);
+    //char buffer[bytes_to_copy];
+    std::vector<char> buffer(bytes_to_copy);
+    input_file.read(buffer.data(), bytes_to_copy);
 
     if (!input_file) {
         std::cerr << "Error: Unable to read from input file " << logo_file << std::endl;
@@ -288,7 +289,7 @@ void copy_part_file(const std::string &logo_file, const std::string &output_dir,
     }
 
 // Записываем прочитанные байты в выходной файл
-    output_file.write(buffer, bytes_to_copy);
+    output_file.write(buffer.data(), bytes_to_copy);
 
     if (!output_file) {
         std::cerr << "Error: Unable to write to output file " << output_filename << std::endl;

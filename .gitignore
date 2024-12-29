@@ -4,6 +4,8 @@
 ## Get latest from https://github.com/github/gitignore/blob/master/VisualStudio.gitignore
 cmake-build-debug/
 cmake-build-release/
+obj/
+build/
 # User-specific files
 *.rsuser
 *.suo

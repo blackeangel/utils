@@ -21,7 +21,7 @@ where function is:
 
   foffset <file> <hexstring> [option...]
 
-  fstab_fix [-rw] [-b /path/to/folder] <folder1_or_file1> <folder2_or_file2>....<folderN_or_fileN>
+  fstab_fix [-rw] [-b | -br /path/to/folder] <folder1_or_file1> <folder2_or_file2>....<folderN_or_fileN>
 
   hexpatch <file> <what_find in hex> <what_replace in hex> <way>
 
@@ -38,6 +38,14 @@ where function is:
   shared_block_detector <file>
 
   writekey <image_file> <offset> <-fhb> <file_key_value>
+
+  append2simg <output> <input>
+
+  img2simg [-s] <raw_image_file> <sparse_image_file> [<block_size>]
+
+  simg2img <sparse_image_files> <raw_image_file>
+
+  simg2simg <sparse image file> <sparse_image_file> <max_size>
 )***";
 
 std::unique_ptr<UtilBase> make_object(const char* name)
@@ -90,6 +98,21 @@ std::unique_ptr<UtilBase> make_object(const char* name)
     if (name == "chunk_split"sv) {
         return std::make_unique<CHUNK_SPLIT>();
     }
+    /*
+    if (name == "append2simg"sv) {
+        return std::make_unique<Append2Simg>();
+    }
+
+    if (name == "img2simg"sv) {
+        return std::make_unique<Img2Simg>();
+    }
+    if (name == "simg2img"sv) {
+        return std::make_unique<Simg2Img>();
+    }
+    if (name == "simg2simg"sv) {
+        return std::make_unique<Simg2Simg>();
+    }
+    */
     return nullptr;
 }
 

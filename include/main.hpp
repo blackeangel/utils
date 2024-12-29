@@ -287,6 +287,7 @@ public:
 
 private:
     bool rw = false;
+    bool br = false;
     std::filesystem::path backup_folder;
     std::vector<std::string> directories;
 };
@@ -387,6 +388,57 @@ private:
     std::string input_path;
     std::filesystem::path output_dir;
 };
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/*
+class Append2Simg : public UtilBase
+{
+public:
+    // Помощь по параметрам командной строки
+    void show_help() override;
+    // Парсить командную строку
+    ParseResult parse_cmd_line(int argc, char* argv[]) override;
+    ProcessResult process() override;
+private:
+    char* input_path = nullptr;
+    char* output_path = nullptr;
+};
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+class Img2Simg : public UtilBase
+{
+public:
+    // Помощь по параметрам командной строки
+    void show_help() override;
+    // Парсить командную строку
+    ParseResult parse_cmd_line(int argc, char* argv[]) override;
+    ProcessResult process() override;
+private:
+
+};
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+class Simg2Img : public UtilBase
+{
+public:
+    // Помощь по параметрам командной строки
+    void show_help() override;
+    // Парсить командную строку
+    ParseResult parse_cmd_line(int argc, char* argv[]) override;
+    ProcessResult process() override;
+private:
+
+};
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+class Simg2Simg : public UtilBase
+{
+public:
+    // Помощь по параметрам командной строки
+    void show_help() override;
+    // Парсить командную строку
+    ParseResult parse_cmd_line(int argc, char* argv[]) override;
+    ProcessResult process() override;
+private:
+
+};*/
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Поиск строки (вектора символов) search_str в файле filename и вызов функции callback для каждого вхождения.
 // Возвращает результат операции (в т.ч. возвращаемый функцией callback) и кол-во найденных вхождений.
