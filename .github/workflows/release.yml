@@ -1,0 +1,150 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag (e.g. v1.2.3)'
+        required: true
+
+jobs:
+  # ── Build matrix ─────────────────────────────────────────────────────────────
+  build:
+    name: Build (${{ matrix.abi }})
+    runs-on: ubuntu-24.04
+
+    strategy:
+      fail-fast: false
+      matrix:
+        abi: [ armeabi-v7a, arm64-v8a, x86, x86_64 ]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup NDK r25c
+        uses: nttld/setup-ndk@v1
+        id: setup-ndk
+        with:
+          ndk-version: r25c
+          add-to-path: true
+
+      - name: Cache CMake / FetchContent
+        uses: actions/cache@v4
+        with:
+          path: build-${{ matrix.abi }}/_deps
+          key: deps-${{ matrix.abi }}-${{ hashFiles('CMakeLists.txt') }}
+          restore-keys: deps-${{ matrix.abi }}-
+
+      - name: Configure
+        run: |
+          cmake -S . -B build-${{ matrix.abi }} \
+            -DANDROID_ABI=${{ matrix.abi }} \
+            -DCMAKE_TOOLCHAIN_FILE=${{ steps.setup-ndk.outputs.ndk-path }}/build/cmake/android.toolchain.cmake \
+            -DANDROID_NATIVE_API_LEVEL=30 \
+            -DANDROID_STL=c++_static \
+            -DCMAKE_BUILD_TYPE=Release \
+            -GNinja
+
+      - name: Build
+        run: cmake --build build-${{ matrix.abi }} -- -j$(nproc)
+
+      - name: Rename binary
+        run: |
+          cp build-${{ matrix.abi }}/utils bin_utils_${{ matrix.abi }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: bin_utils_${{ matrix.abi }}
+          path: bin_utils_${{ matrix.abi }}
+          retention-days: 1
+
+  # ── Publish GitHub Release ───────────────────────────────────────────────────
+  release:
+    name: Publish Release
+    runs-on: ubuntu-24.04
+    needs: build
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: List artifacts
+        run: ls -lh artifacts/
+
+      - name: Determine tag name
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "name=${{ github.event.inputs.tag }}" >> $GITHUB_OUTPUT
+          else
+            echo "name=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create zip archives per ABI
+        run: |
+          cd artifacts
+          for abi in armeabi-v7a arm64-v8a x86 x86_64; do
+            if [ -f "bin_utils_${abi}" ]; then
+              zip "bin_utils_${abi}.zip" "bin_utils_${abi}"
+              echo "Created bin_utils_${abi}.zip"
+            fi
+          done
+          ls -lh *.zip
+
+      - name: Generate release notes
+        id: notes
+        run: |
+          TAG=${{ steps.tag.outputs.name }}
+          cat > release_notes.md << EOF
+          ## utils $TAG
+
+          ### Архитектуры / Architectures
+
+          | Файл / File | Архитектура / Architecture |
+          |---|---|
+          | \`bin_utils_arm64-v8a.zip\` | ARM 64-bit (современные устройства / modern devices) |
+          | \`bin_utils_armeabi-v7a.zip\` | ARM 32-bit (старые устройства / older devices) |
+          | \`bin_utils_x86_64.zip\` | x86 64-bit (эмулятор / emulator) |
+          | \`bin_utils_x86.zip\` | x86 32-bit (эмулятор / emulator) |
+
+          ### Установка / Installation
+
+          ```bash
+          # Скачать нужную архитектуру / Download for your architecture
+          unzip bin_utils_arm64-v8a.zip
+          chmod +x bin_utils_arm64-v8a
+          ./bin_utils_arm64-v8a help
+          ```
+
+          ### Список функций / Functions
+
+          \`block_finder\` \`chunk_split\` \`copy\` \`cut\` \`delgaaps\`
+          \`file_explorer\` \`foffset\` \`fstab_fix\` \`hexpatch\` \`insert\`
+          \`kerver\` \`logo_mtk\` \`md1img\` \`sdat2img\` \`shared_block_detector\`
+          \`writekey\` \`avb_fixed\` \`append2simg\` \`img2simg\` \`simg2img\` \`simg2simg\`
+
+          See [README](https://github.com/${{ github.repository }}/blob/main/README.md) for full usage.
+          EOF
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.name }}
+          name: utils ${{ steps.tag.outputs.name }}
+          body_path: release_notes.md
+          draft: false
+          prerelease: false
+          files: artifacts/*.zip

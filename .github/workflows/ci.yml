@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+    paths-ignore:
+      - '**.md'
+      - 'LICENSE'
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    name: Build (${{ matrix.abi }})
+    runs-on: ubuntu-24.04
+
+    strategy:
+      fail-fast: false
+      matrix:
+        abi: [ armeabi-v7a, arm64-v8a ]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup NDK r25c
+        uses: nttld/setup-ndk@v1
+        id: setup-ndk
+        with:
+          ndk-version: r25c
+          add-to-path: true
+
+      - name: Cache CMake / FetchContent
+        uses: actions/cache@v4
+        with:
+          path: |
+            build-${{ matrix.abi }}/_deps
+          key: deps-${{ matrix.abi }}-${{ hashFiles('CMakeLists.txt') }}
+          restore-keys: deps-${{ matrix.abi }}-
+
+      - name: Configure
+        run: |
+          cmake -S . -B build-${{ matrix.abi }} \
+            -DANDROID_ABI=${{ matrix.abi }} \
+            -DCMAKE_TOOLCHAIN_FILE=${{ steps.setup-ndk.outputs.ndk-path }}/build/cmake/android.toolchain.cmake \
+            -DANDROID_NATIVE_API_LEVEL=30 \
+            -DANDROID_STL=c++_static \
+            -DCMAKE_BUILD_TYPE=Release \
+            -GNinja
+
+      - name: Build
+        run: cmake --build build-${{ matrix.abi }} -- -j$(nproc)
+
+      - name: Check binary
+        run: |
+          file build-${{ matrix.abi }}/utils
+          ls -lh build-${{ matrix.abi }}/utils
