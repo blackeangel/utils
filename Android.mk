@@ -127,6 +127,106 @@ include $(BUILD_STATIC_LIBRARY)
 
 #####################################################################################
 #utils
+
+#####################################################################################
+# liblzma (vendored XZ Utils, threads disabled)
+include $(CLEAR_VARS)
+LOCAL_MODULE := liblzma
+LOCAL_C_INCLUDES := \
+	src/liblzma \
+	src/liblzma/api \
+	src/liblzma/common \
+	src/liblzma/check \
+	src/liblzma/lzma \
+	src/liblzma/lz \
+	src/liblzma/rangecoder \
+	src/liblzma/delta \
+	src/liblzma/simple 
+
+LOCAL_CFLAGS := -DHAVE_CONFIG_H -DLZMA_API_STATIC
+
+LOCAL_SRC_FILES := \
+src/liblzma/check/check.c \
+src/liblzma/check/crc32_fast.c \
+src/liblzma/check/crc32_small.c \
+src/liblzma/check/crc64_fast.c \
+src/liblzma/check/crc64_small.c \
+src/liblzma/check/sha256.c \
+src/liblzma/common/alone_decoder.c \
+src/liblzma/common/alone_encoder.c \
+src/liblzma/common/auto_decoder.c \
+src/liblzma/common/block_buffer_decoder.c \
+src/liblzma/common/block_buffer_encoder.c \
+src/liblzma/common/block_decoder.c \
+src/liblzma/common/block_encoder.c \
+src/liblzma/common/block_header_decoder.c \
+src/liblzma/common/block_header_encoder.c \
+src/liblzma/common/block_util.c \
+src/liblzma/common/common.c \
+src/liblzma/common/easy_buffer_encoder.c \
+src/liblzma/common/easy_decoder_memusage.c \
+src/liblzma/common/easy_encoder.c \
+src/liblzma/common/easy_encoder_memusage.c \
+src/liblzma/common/easy_preset.c \
+src/liblzma/common/file_info.c \
+src/liblzma/common/filter_buffer_decoder.c \
+src/liblzma/common/filter_buffer_encoder.c \
+src/liblzma/common/filter_common.c \
+src/liblzma/common/filter_decoder.c \
+src/liblzma/common/filter_encoder.c \
+src/liblzma/common/filter_flags_decoder.c \
+src/liblzma/common/filter_flags_encoder.c \
+src/liblzma/common/hardware_physmem.c \
+src/liblzma/common/index.c \
+src/liblzma/common/index_decoder.c \
+src/liblzma/common/index_encoder.c \
+src/liblzma/common/index_hash.c \
+src/liblzma/common/lzip_decoder.c \
+src/liblzma/common/microlzma_decoder.c \
+src/liblzma/common/microlzma_encoder.c \
+src/liblzma/common/stream_buffer_decoder.c \
+src/liblzma/common/stream_buffer_encoder.c \
+src/liblzma/common/stream_decoder.c \
+src/liblzma/common/stream_encoder.c \
+src/liblzma/common/stream_flags_common.c \
+src/liblzma/common/stream_flags_decoder.c \
+src/liblzma/common/stream_flags_encoder.c \
+src/liblzma/common/string_conversion.c \
+src/liblzma/common/vli_decoder.c \
+src/liblzma/common/vli_encoder.c \
+src/liblzma/common/vli_size.c \
+src/liblzma/delta/delta_common.c \
+src/liblzma/delta/delta_decoder.c \
+src/liblzma/delta/delta_encoder.c \
+src/liblzma/lz/lz_decoder.c \
+src/liblzma/lz/lz_encoder.c \
+src/liblzma/lz/lz_encoder_mf.c \
+src/liblzma/lzma/fastpos_table.c \
+src/liblzma/lzma/lzma2_decoder.c \
+src/liblzma/lzma/lzma2_encoder.c \
+src/liblzma/lzma/lzma_decoder.c \
+src/liblzma/lzma/lzma_encoder.c \
+src/liblzma/lzma/lzma_encoder_optimum_fast.c \
+src/liblzma/lzma/lzma_encoder_optimum_normal.c \
+src/liblzma/lzma/lzma_encoder_presets.c \
+src/liblzma/rangecoder/price_table.c \
+src/liblzma/rangecoder/price_tablegen.c \
+src/liblzma/simple/arm.c \
+src/liblzma/simple/arm64.c \
+src/liblzma/simple/armthumb.c \
+src/liblzma/simple/ia64.c \
+src/liblzma/simple/powerpc.c \
+src/liblzma/simple/riscv.c \
+src/liblzma/simple/simple_coder.c \
+src/liblzma/simple/simple_decoder.c \
+src/liblzma/simple/simple_encoder.c \
+src/liblzma/simple/sparc.c \
+src/liblzma/simple/x86.c \
+src/liblzma/tuklib_cpucores.c \
+src/liblzma/tuklib_physmem.c 
+
+include $(BUILD_STATIC_LIBRARY)
+
 #####################################################################################
 
 include $(CLEAR_VARS)
@@ -136,20 +236,25 @@ LOCAL_MODULE := bin_utils
 LOCAL_C_INCLUDES := \
 	includes \
 	src/zlib \
+	src/liblzma \
+	src/liblzma/api \
+	src/md1img \
     src/e2fsdroid/ext2fs
 
-LOCAL_CXXFLAGS := -fexceptions -std=c++2a -pipe -O2 -s
+LOCAL_CXXFLAGS := -fexceptions -std=c++2a -pipe -O2 -s -DLZMA_API_STATIC
 
 LOCAL_LDFLAGS := -fPIE -static -ldl
 
 LOCAL_SRC_FILES := $(wildcard src/*.cpp) \
-					$(wildcard src/*.cxx)
+					$(wildcard src/*.cxx) \
+					$(wildcard src/md1img/*.cpp)
 
 LOCAL_STATIC_LIBRARIES := \
 z \
 sparse \
 libpng \
-minizip
+minizip \
+liblzma
 
 include $(BUILD_EXECUTABLE)
 

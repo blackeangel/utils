@@ -340,16 +340,13 @@ class Block_Finder : public UtilBase
 class MD1IMG : public UtilBase
 {
 public:
-    // Помощь по параметрам командной строки
     void show_help() override;
-    // Парсить командную строку
     ParseResult parse_cmd_line(int argc, char* argv[]) override;
-
     ProcessResult process() override;
-
 private:
     std::string mode;
     std::string input_path;
+    std::string output_file;
     std::filesystem::path output_dir;
 };
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -1,0 +1,11 @@
+#pragma once
+#define HAVE_STDBOOL_H 1
+#define HAVE_STDINT_H  1
+#define HAVE_INTTYPES_H 1
+#define HAVE_VISIBILITY 0
+#define LZMA_API_STATIC 1
+#define TUKLIB_CPUCORES_SYSCONF 1
+#define TUKLIB_PHYSMEM_SYSCONF 1
+#define PACKAGE_NAME "liblzma"
+#define PACKAGE_VERSION "5.6.0"
+#define SIZEOF_SIZE_T __SIZEOF_POINTER__
