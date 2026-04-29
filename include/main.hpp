@@ -389,56 +389,55 @@ private:
     std::filesystem::path output_dir;
 };
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-/*
 class Append2Simg : public UtilBase
 {
 public:
-    // Помощь по параметрам командной строки
     void show_help() override;
-    // Парсить командную строку
     ParseResult parse_cmd_line(int argc, char* argv[]) override;
     ProcessResult process() override;
 private:
-    char* input_path = nullptr;
-    char* output_path = nullptr;
+    const char* input_path  = nullptr;
+    const char* output_path = nullptr;
 };
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 class Img2Simg : public UtilBase
 {
 public:
-    // Помощь по параметрам командной строки
     void show_help() override;
-    // Парсить командную строку
     ParseResult parse_cmd_line(int argc, char* argv[]) override;
     ProcessResult process() override;
 private:
-
+    const char*  input_path    = nullptr;
+    const char*  output_path   = nullptr;
+    unsigned int block_size    = 4096;
+    bool         use_hole_mode = false;
 };
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 class Simg2Img : public UtilBase
 {
 public:
-    // Помощь по параметрам командной строки
     void show_help() override;
-    // Парсить командную строку
     ParseResult parse_cmd_line(int argc, char* argv[]) override;
     ProcessResult process() override;
 private:
-
+    std::vector<std::string> input_paths;
+    std::string              output_path;
 };
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 class Simg2Simg : public UtilBase
 {
 public:
-    // Помощь по параметрам командной строки
     void show_help() override;
-    // Парсить командную строку
     ParseResult parse_cmd_line(int argc, char* argv[]) override;
     ProcessResult process() override;
 private:
-
-};*/
+    const char* input_path    = nullptr;
+    const char* output_prefix = nullptr;
+    int64_t     max_size      = 0;
+};
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Поиск строки (вектора символов) search_str в файле filename и вызов функции callback для каждого вхождения.
 // Возвращает результат операции (в т.ч. возвращаемый функцией callback) и кол-во найденных вхождений.

@@ -98,11 +98,9 @@ std::unique_ptr<UtilBase> make_object(const char* name)
     if (name == "chunk_split"sv) {
         return std::make_unique<CHUNK_SPLIT>();
     }
-    /*
-    if (name == "append2simg"sv) {
+        if (name == "append2simg"sv) {
         return std::make_unique<Append2Simg>();
     }
-
     if (name == "img2simg"sv) {
         return std::make_unique<Img2Simg>();
     }
@@ -112,7 +110,6 @@ std::unique_ptr<UtilBase> make_object(const char* name)
     if (name == "simg2simg"sv) {
         return std::make_unique<Simg2Simg>();
     }
-    */
     return nullptr;
 }
 

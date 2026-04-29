@@ -22,7 +22,7 @@ LOCAL_SRC_FILES += \
     src/zlib/deflate.c \
     src/zlib/gzclose.c \
     src/zlib/gzlib.c \
-    src//zlib/gzread.c \
+    src/zlib/gzread.c \
     src/zlib/gzwrite.c \
     src/zlib/infback.c \
     src/zlib/inffast.c \
@@ -60,10 +60,10 @@ src/sparse/backed_block.cpp \
 src/sparse/img2simg.cpp \
 src/sparse/output_file.cpp \
 src/sparse/simg2img.cpp \
+src/sparse/simg2simg.cpp \
 src/sparse/sparse.cpp \
 src/sparse/sparse_crc32.cpp \
 src/sparse/sparse_err.cpp \
-src/sparse/sparse_fuzzer.cpp \
 src/sparse/sparse_read.cpp \
 
 include $(BUILD_STATIC_LIBRARY)
