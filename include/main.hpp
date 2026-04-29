@@ -389,6 +389,20 @@ private:
     std::filesystem::path output_dir;
 };
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+class AvbFixed : public UtilBase
+{
+public:
+    void show_help() override;
+    ParseResult parse_cmd_line(int argc, char* argv[]) override;
+    ProcessResult process() override;
+private:
+    std::string image_path;
+    bool do_disable = false;
+    bool do_restore = false;
+};
+
+////////////////////////////////////////////////////////////////
 class Append2Simg : public UtilBase
 {
 public:

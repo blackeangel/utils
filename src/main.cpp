@@ -39,6 +39,8 @@ where function is:
 
   writekey <image_file> <offset> <-fhb> <file_key_value>
 
+  avb_fixed <vbmeta.img> [--disable_verified | --restore]
+
   append2simg <output> <input>
 
   img2simg [-s] <raw_image_file> <sparse_image_file> [<block_size>]
@@ -94,6 +96,9 @@ std::unique_ptr<UtilBase> make_object(const char* name)
     }
     if (name == "logo_mtk"sv) {
         return std::make_unique<LOGO_MTK>();
+    }
+    if (name == "avb_fixed"sv) {
+        return std::make_unique<AvbFixed>();
     }
     if (name == "chunk_split"sv) {
         return std::make_unique<CHUNK_SPLIT>();
