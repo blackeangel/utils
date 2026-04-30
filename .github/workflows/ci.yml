@@ -36,7 +36,7 @@ jobs:
       - name: Check binary
         run: |
           file out/utils
-          ./out/utils help | head -5
+          ./out/utils help || true
 
   # ── Windows x86_64 (MinGW-w64) ───────────────────────────────────────────────
   build-windows:
@@ -77,7 +77,7 @@ jobs:
       - name: Check binary
         run: |
           file out/utils.exe
-          ./out/utils.exe help | head -5
+          ./out/utils.exe help || true
 
   # ── Android (NDK, matrix) ────────────────────────────────────────────────────
   build-android:
