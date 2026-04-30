@@ -17,6 +17,13 @@ else()
     set(CMAKE_C_FLAGS_RELEASE   "-pipe -O2 -s")
 endif()
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/out)
+# On multi-config generators (MSVC, Xcode) the binary lands in out/<Config>/
+# Force single-level output so CI can find it at out/utils(.exe) reliably
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/out)
+foreach(cfg Debug Release RelWithDebInfo MinSizeRel)
+    string(TOUPPER ${cfg} CFG)
+    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_${CFG} ${PROJECT_SOURCE_DIR}/out)
+endforeach()
 
 # ── Линковка ──────────────────────────────────────────────────────────────────
 # NDK кросс-компиляция → полный -static (STL через ANDROID_STL=c++_static)
@@ -58,29 +65,59 @@ else()
     find_package(Threads REQUIRED)
 endif()
 
-# ── XZ / liblzma (для md1img) ─────────────────────────────────────────────────
-FetchContent_Declare(
-    xz
-    GIT_REPOSITORY https://github.com/tukaani-project/xz.git
-    GIT_TAG        master
-    GIT_SHALLOW    TRUE
-)
-set(XZ_BUILD_ENCODERS    ON  CACHE BOOL "" FORCE)
-set(XZ_BUILD_DECODERS    ON  CACHE BOOL "" FORCE)
-set(XZ_ENABLE_THREADS    OFF CACHE BOOL "" FORCE)
-set(XZ_TOOL_XZ           OFF CACHE BOOL "" FORCE)
-set(XZ_TOOL_XZDEC        OFF CACHE BOOL "" FORCE)
-set(XZ_TOOL_LZMADEC      OFF CACHE BOOL "" FORCE)
-set(XZ_TOOL_LZMAINFO     OFF CACHE BOOL "" FORCE)
-set(XZ_TOOL_XZ_GREP      OFF CACHE BOOL "" FORCE)
-set(XZ_TOOL_XZ_LESS      OFF CACHE BOOL "" FORCE)
-set(XZ_TOOL_XZ_DIFF      OFF CACHE BOOL "" FORCE)
-set(CREATE_XZ_SYMLINKS   OFF CACHE BOOL "" FORCE)
-set(CREATE_LZMA_SYMLINKS OFF CACHE BOOL "" FORCE)
-set(XZ_ENABLE_DOXYGEN    OFF CACHE BOOL "" FORCE)
-set(XZ_ENABLE_SANDBOX    OFF CACHE BOOL "" FORCE)
-set(ENABLE_NLS           OFF CACHE BOOL "" FORCE)
-FetchContent_MakeAvailable(xz)
+# ── XZ / liblzma ──────────────────────────────────────────────────────────────
+# Android cross-compile: FetchContent fails (can't run host binaries during configure).
+# Use the vendored copy in src/liblzma/ instead.
+# Linux / Windows native: FetchContent fetches and builds XZ Utils automatically.
+if(CMAKE_CROSSCOMPILING OR ANDROID)
+    # ── Vendored liblzma (src/liblzma/) ───────────────────────────────────────
+    file(GLOB_RECURSE VENDORED_LZMA_SRCS
+        "${PROJECT_SOURCE_DIR}/src/liblzma/*.c"
+    )
+    # Exclude tablegen helpers and MT-only files (not needed, may not compile)
+    list(FILTER VENDORED_LZMA_SRCS EXCLUDE REGEX
+        "(tablegen|stream_encoder_mt|stream_decoder_mt|outqueue|hardware_cputhreads|tuklib_cpucores)\.c$")
+
+    add_library(liblzma STATIC ${VENDORED_LZMA_SRCS})
+    target_compile_definitions(liblzma PUBLIC HAVE_CONFIG_H LZMA_API_STATIC)
+    target_include_directories(liblzma PUBLIC
+        ${PROJECT_SOURCE_DIR}/src/liblzma
+        ${PROJECT_SOURCE_DIR}/src/liblzma/api
+        ${PROJECT_SOURCE_DIR}/src/liblzma/common
+        ${PROJECT_SOURCE_DIR}/src/liblzma/check
+        ${PROJECT_SOURCE_DIR}/src/liblzma/lzma
+        ${PROJECT_SOURCE_DIR}/src/liblzma/lz
+        ${PROJECT_SOURCE_DIR}/src/liblzma/rangecoder
+        ${PROJECT_SOURCE_DIR}/src/liblzma/delta
+        ${PROJECT_SOURCE_DIR}/src/liblzma/simple
+    )
+    set(LZMA_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/src/liblzma/api)
+else()
+    # ── FetchContent (native builds) ───────────────────────────────────────────
+    FetchContent_Declare(
+        xz
+        GIT_REPOSITORY https://github.com/tukaani-project/xz.git
+        GIT_TAG        v5.6.3
+        GIT_SHALLOW    TRUE
+    )
+    set(XZ_BUILD_ENCODERS    ON  CACHE BOOL "" FORCE)
+    set(XZ_BUILD_DECODERS    ON  CACHE BOOL "" FORCE)
+    set(XZ_ENABLE_THREADS    OFF CACHE BOOL "" FORCE)
+    set(XZ_TOOL_XZ           OFF CACHE BOOL "" FORCE)
+    set(XZ_TOOL_XZDEC        OFF CACHE BOOL "" FORCE)
+    set(XZ_TOOL_LZMADEC      OFF CACHE BOOL "" FORCE)
+    set(XZ_TOOL_LZMAINFO     OFF CACHE BOOL "" FORCE)
+    set(XZ_TOOL_XZ_GREP      OFF CACHE BOOL "" FORCE)
+    set(XZ_TOOL_XZ_LESS      OFF CACHE BOOL "" FORCE)
+    set(XZ_TOOL_XZ_DIFF      OFF CACHE BOOL "" FORCE)
+    set(CREATE_XZ_SYMLINKS   OFF CACHE BOOL "" FORCE)
+    set(CREATE_LZMA_SYMLINKS OFF CACHE BOOL "" FORCE)
+    set(XZ_ENABLE_DOXYGEN    OFF CACHE BOOL "" FORCE)
+    set(XZ_ENABLE_SANDBOX    OFF CACHE BOOL "" FORCE)
+    set(ENABLE_NLS           OFF CACHE BOOL "" FORCE)
+    FetchContent_MakeAvailable(xz)
+    set(LZMA_INCLUDE_DIR ${xz_SOURCE_DIR}/src/liblzma/api)
+endif()
 
 # ── include_directories ───────────────────────────────────────────────────────
 include_directories(
@@ -168,7 +205,7 @@ endif()
 add_executable(utils ${SRCS})
 
 target_include_directories(utils PRIVATE
-    ${xz_SOURCE_DIR}/src/liblzma/api
+    ${LZMA_INCLUDE_DIR}
 )
 
 target_link_libraries(utils

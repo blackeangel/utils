@@ -16,13 +16,13 @@ jobs:
     name: Linux x86_64
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install Ninja
         run: sudo apt-get install -y ninja-build
 
-      - name: Cache FetchContent
-        uses: actions/cache@v4
+      - name: Cache FetchContent (xz)
+        uses: actions/cache@v5
         with:
           path: build-linux/_deps
           key: deps-linux-${{ hashFiles('CMakeLists.txt') }}
@@ -34,11 +34,15 @@ jobs:
       - name: Build
         run: cmake --build build-linux -- -j$(nproc)
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
+      - name: Package
+        run: |
+          chmod +x out/utils
+          tar czf utils_linux_x86_64.tar.gz -C out utils
+
+      - uses: actions/upload-artifact@v6
         with:
           name: utils_linux_x86_64
-          path: out/utils
+          path: utils_linux_x86_64.tar.gz
           retention-days: 1
 
   # ── Windows x86_64 (MinGW-w64) ───────────────────────────────────────────────
@@ -49,7 +53,7 @@ jobs:
       run:
         shell: msys2 {0}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: msys2/setup-msys2@v2
         with:
@@ -59,9 +63,11 @@ jobs:
             mingw-w64-x86_64-gcc
             mingw-w64-x86_64-cmake
             mingw-w64-x86_64-ninja
+            git
+            zip
 
-      - name: Cache FetchContent
-        uses: actions/cache@v4
+      - name: Cache FetchContent (xz)
+        uses: actions/cache@v5
         with:
           path: build-windows/_deps
           key: deps-windows-${{ hashFiles('CMakeLists.txt') }}
@@ -70,16 +76,19 @@ jobs:
       - name: Configure
         run: |
           cmake -S . -B build-windows -GNinja -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++
+            -DCMAKE_C_COMPILER=gcc \
+            -DCMAKE_CXX_COMPILER=g++
 
       - name: Build
         run: cmake --build build-windows -- -j$(nproc)
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
+      - name: Package
+        run: zip utils_windows_x86_64.zip out/utils.exe
+
+      - uses: actions/upload-artifact@v6
         with:
           name: utils_windows_x86_64
-          path: out/utils.exe
+          path: utils_windows_x86_64.zip
           retention-days: 1
 
   # ── Android matrix ───────────────────────────────────────────────────────────
@@ -91,9 +100,10 @@ jobs:
       matrix:
         abi: [ armeabi-v7a, arm64-v8a, x86, x86_64 ]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: nttld/setup-ndk@v1
+      - name: Setup NDK r25c
+        uses: nttld/setup-ndk@v1
         id: ndk
         with:
           ndk-version: r25c
@@ -102,16 +112,9 @@ jobs:
       - name: Install Ninja
         run: sudo apt-get install -y ninja-build
 
-      - name: Cache FetchContent
-        uses: actions/cache@v4
-        with:
-          path: build-android-${{ matrix.abi }}/_deps
-          key: deps-android-${{ matrix.abi }}-${{ hashFiles('CMakeLists.txt') }}
-          restore-keys: deps-android-${{ matrix.abi }}-
-
       - name: Configure
         run: |
-          cmake -S . -B build-android-${{ matrix.abi }} -GNinja \
+          cmake -S . -B build-${{ matrix.abi }} -GNinja \
             -DANDROID_ABI=${{ matrix.abi }} \
             -DCMAKE_TOOLCHAIN_FILE=${{ steps.ndk.outputs.ndk-path }}/build/cmake/android.toolchain.cmake \
             -DANDROID_NATIVE_API_LEVEL=30 \
@@ -119,16 +122,17 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release
 
       - name: Build
-        run: cmake --build build-android-${{ matrix.abi }} -- -j$(nproc)
+        run: cmake --build build-${{ matrix.abi }} -- -j$(nproc)
 
-      - name: Rename binary
-        run: cp out/utils utils_android_${{ matrix.abi }}
+      - name: Package
+        run: |
+          cp out/utils utils_android_${{ matrix.abi }}
+          zip utils_android_${{ matrix.abi }}.zip utils_android_${{ matrix.abi }}
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: utils_android_${{ matrix.abi }}
-          path: utils_android_${{ matrix.abi }}
+          path: utils_android_${{ matrix.abi }}.zip
           retention-days: 1
 
   # ── Publish GitHub Release ───────────────────────────────────────────────────
@@ -139,10 +143,10 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           path: artifacts
           merge-multiple: true
@@ -159,70 +163,47 @@ jobs:
             echo "name=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
           fi
 
-      - name: Package artifacts
-        run: |
-          cd artifacts
-          # Linux — tar.gz
-          chmod +x utils_linux_x86_64
-          tar czf utils_linux_x86_64.tar.gz utils_linux_x86_64
-          # Windows — zip
-          zip utils_windows_x86_64.zip utils_windows_x86_64.exe 2>/dev/null || \
-            zip utils_windows_x86_64.zip utils.exe 2>/dev/null || true
-          # Android — zip per ABI
-          for abi in armeabi-v7a arm64-v8a x86 x86_64; do
-            [ -f "utils_android_${abi}" ] && zip "utils_android_${abi}.zip" "utils_android_${abi}"
-          done
-          ls -lh *.tar.gz *.zip
-
       - name: Generate release notes
         run: |
           TAG=${{ steps.tag.outputs.name }}
-          cat > release_notes.md << 'EOF'
-          ## utils TAG_PLACEHOLDER
+          cat > release_notes.md << NOTES
+          ## utils ${TAG}
 
           ### Platforms / Платформы
 
           | File / Файл | Platform / Платформа |
           |---|---|
-          | `utils_linux_x86_64.tar.gz` | Linux x86_64 |
-          | `utils_windows_x86_64.zip` | Windows x86_64 |
-          | `utils_android_arm64-v8a.zip` | Android ARM64 (современные / modern) |
-          | `utils_android_armeabi-v7a.zip` | Android ARMv7 (старые / older) |
-          | `utils_android_x86_64.zip` | Android x86_64 (эмулятор / emulator) |
-          | `utils_android_x86.zip` | Android x86 (эмулятор / emulator) |
+          | \`utils_linux_x86_64.tar.gz\` | Linux x86_64 |
+          | \`utils_windows_x86_64.zip\` | Windows x86_64 |
+          | \`utils_android_arm64-v8a.zip\` | Android ARM64 (modern devices) |
+          | \`utils_android_armeabi-v7a.zip\` | Android ARMv7 (older devices) |
+          | \`utils_android_x86_64.zip\` | Android x86_64 (emulator) |
+          | \`utils_android_x86.zip\` | Android x86 (emulator) |
 
           ### Installation / Установка
 
           **Linux:**
-          ```bash
+          \`\`\`bash
           tar xzf utils_linux_x86_64.tar.gz
-          chmod +x utils_linux_x86_64
-          ./utils_linux_x86_64 help
-          ```
+          chmod +x utils
+          ./utils help
+          \`\`\`
 
           **Windows:**
-          ```
+          \`\`\`
           unzip utils_windows_x86_64.zip
-          utils_windows_x86_64.exe help
-          ```
+          utils.exe help
+          \`\`\`
 
           **Android:**
-          ```bash
+          \`\`\`bash
           unzip utils_android_arm64-v8a.zip
           chmod +x utils_android_arm64-v8a
           ./utils_android_arm64-v8a help
-          ```
-
-          ### Functions / Функции
-
-          `block_finder` `chunk_split` `copy` `cut` `delgaaps`
-          `file_explorer` `foffset` `fstab_fix` `hexpatch` `insert`
-          `kerver` `logo_mtk` `md1img` `sdat2img` `shared_block_detector`
-          `writekey` `avb_fixed` `append2simg` `img2simg` `simg2img` `simg2simg`
+          \`\`\`
 
           See [README](https://github.com/${{ github.repository }}/blob/main/README.md) for full usage.
-          EOF
-          sed -i "s/TAG_PLACEHOLDER/${TAG}/" release_notes.md
+          NOTES
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2

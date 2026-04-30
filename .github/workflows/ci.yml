@@ -10,18 +10,18 @@ on:
     branches: [ main ]
 
 jobs:
-  # ── Linux native ─────────────────────────────────────────────────────────────
+  # ── Linux x86_64 ─────────────────────────────────────────────────────────────
   build-linux:
     name: Linux x86_64
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install Ninja
         run: sudo apt-get install -y ninja-build
 
-      - name: Cache FetchContent
-        uses: actions/cache@v4
+      - name: Cache FetchContent (xz)
+        uses: actions/cache@v5
         with:
           path: build-linux/_deps
           key: deps-linux-${{ hashFiles('CMakeLists.txt') }}
@@ -33,10 +33,12 @@ jobs:
       - name: Build
         run: cmake --build build-linux -- -j$(nproc)
 
-      - name: Check
-        run: file out/utils && ./out/utils help | head -5
+      - name: Check binary
+        run: |
+          file out/utils
+          ./out/utils help | head -5
 
-  # ── Windows native (MinGW-w64) ───────────────────────────────────────────────
+  # ── Windows x86_64 (MinGW-w64) ───────────────────────────────────────────────
   build-windows:
     name: Windows x86_64
     runs-on: windows-latest
@@ -44,7 +46,7 @@ jobs:
       run:
         shell: msys2 {0}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: msys2/setup-msys2@v2
         with:
@@ -54,9 +56,10 @@ jobs:
             mingw-w64-x86_64-gcc
             mingw-w64-x86_64-cmake
             mingw-w64-x86_64-ninja
+            git
 
-      - name: Cache FetchContent
-        uses: actions/cache@v4
+      - name: Cache FetchContent (xz)
+        uses: actions/cache@v5
         with:
           path: build-windows/_deps
           key: deps-windows-${{ hashFiles('CMakeLists.txt') }}
@@ -65,13 +68,16 @@ jobs:
       - name: Configure
         run: |
           cmake -S . -B build-windows -GNinja -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++
+            -DCMAKE_C_COMPILER=gcc \
+            -DCMAKE_CXX_COMPILER=g++
 
       - name: Build
         run: cmake --build build-windows -- -j$(nproc)
 
-      - name: Check
-        run: out/utils.exe help | head -5
+      - name: Check binary
+        run: |
+          file out/utils.exe
+          ./out/utils.exe help | head -5
 
   # ── Android (NDK, matrix) ────────────────────────────────────────────────────
   build-android:
@@ -82,9 +88,10 @@ jobs:
       matrix:
         abi: [ armeabi-v7a, arm64-v8a ]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: nttld/setup-ndk@v1
+      - name: Setup NDK r25c
+        uses: nttld/setup-ndk@v1
         id: ndk
         with:
           ndk-version: r25c
@@ -93,16 +100,9 @@ jobs:
       - name: Install Ninja
         run: sudo apt-get install -y ninja-build
 
-      - name: Cache FetchContent
-        uses: actions/cache@v4
-        with:
-          path: build-android-${{ matrix.abi }}/_deps
-          key: deps-android-${{ matrix.abi }}-${{ hashFiles('CMakeLists.txt') }}
-          restore-keys: deps-android-${{ matrix.abi }}-
-
       - name: Configure
         run: |
-          cmake -S . -B build-android-${{ matrix.abi }} -GNinja \
+          cmake -S . -B build-${{ matrix.abi }} -GNinja \
             -DANDROID_ABI=${{ matrix.abi }} \
             -DCMAKE_TOOLCHAIN_FILE=${{ steps.ndk.outputs.ndk-path }}/build/cmake/android.toolchain.cmake \
             -DANDROID_NATIVE_API_LEVEL=30 \
@@ -110,7 +110,7 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release
 
       - name: Build
-        run: cmake --build build-android-${{ matrix.abi }} -- -j$(nproc)
+        run: cmake --build build-${{ matrix.abi }} -- -j$(nproc)
 
-      - name: Check
+      - name: Check binary
         run: file out/utils
