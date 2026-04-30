@@ -13,8 +13,11 @@ if(MSVC)
     set(CMAKE_CXX_FLAGS_RELEASE "/O2 /DNDEBUG")
     set(CMAKE_C_FLAGS_RELEASE   "/O2 /DNDEBUG")
 else()
-    set(CMAKE_CXX_FLAGS_RELEASE "-pipe -O2 -s")
-    set(CMAKE_C_FLAGS_RELEASE   "-pipe -O2 -s")
+    # -s strips debug symbols at link time (linker flag, not compiler flag)
+    # Pass it only to the linker to avoid clang -Wunused-command-line-argument
+    set(CMAKE_CXX_FLAGS_RELEASE "-pipe -O2")
+    set(CMAKE_C_FLAGS_RELEASE   "-pipe -O2")
+    set(CMAKE_EXE_LINKER_FLAGS_RELEASE "${CMAKE_EXE_LINKER_FLAGS_RELEASE} -s")
 endif()
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/out)
 # On multi-config generators (MSVC, Xcode) the binary lands in out/<Config>/
@@ -76,7 +79,7 @@ if(CMAKE_CROSSCOMPILING OR ANDROID)
     )
     # Exclude tablegen helpers and MT-only files (not needed, may not compile)
     list(FILTER VENDORED_LZMA_SRCS EXCLUDE REGEX
-        "(tablegen|stream_encoder_mt|stream_decoder_mt|outqueue|hardware_cputhreads|tuklib_cpucores)\.c$")
+        "(tablegen|stream_encoder_mt|stream_decoder_mt|outqueue|hardware_cputhreads|tuklib_cpucores|crc32_small|crc64_small)\.c$")
 
     add_library(liblzma STATIC ${VENDORED_LZMA_SRCS})
     target_compile_definitions(liblzma PUBLIC HAVE_CONFIG_H LZMA_API_STATIC)
