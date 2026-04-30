@@ -199,7 +199,11 @@ file(GLOB SRCS
     "${PROJECT_SOURCE_DIR}/src/*"
 )
 # sparse_fuzzer is a standalone tool - not part of utils
-list(FILTER SRCS EXCLUDE REGEX "sparse_fuzzer\\.cpp$")
+list(FILTER SRCS EXCLUDE REGEX "sparse_fuzzer\.cpp$")
+# asprintf is already in POSIX libc and Android bionic - only compile on Windows
+if(NOT WIN32)
+    list(FILTER SRCS EXCLUDE REGEX "asprintf\.c$")
+endif()
 
 add_executable(utils ${SRCS})
 

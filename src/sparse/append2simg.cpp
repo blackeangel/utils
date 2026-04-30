@@ -18,7 +18,9 @@
 #define _LARGEFILE64_SOURCE 1
 
 #include "../../include/main.hpp"
+#ifdef _WIN32
 #include "asprintf.h"
+#endif
 
 #include <errno.h>
 #include <fcntl.h>
