@@ -197,10 +197,6 @@ file(GLOB SRCS
 )
 # sparse_fuzzer is a standalone tool - not part of utils
 list(FILTER SRCS EXCLUDE REGEX "sparse_fuzzer\\.cpp$")
-# mapped_file uses mmap (POSIX only) - use stub on Windows
-if(WIN32)
-    list(FILTER SRCS EXCLUDE REGEX "mapped_file\\.cpp$")
-endif()
 
 add_executable(utils ${SRCS})
 
