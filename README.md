@@ -229,112 +229,129 @@ Output files: `<prefix>.0`, `<prefix>.1`, …
 
 ### Building
 
-The project supports two build methods: **ndk-build** (via `Android.mk`) and **CMake + Ninja** (via `CMakeLists.txt`).  
-CMake is preferred — it automatically downloads `liblzma` (XZ Utils) via `FetchContent`.
+The project supports three target platforms: **Linux**, **Windows**, and **Android**.  
+CMake + Ninja is the preferred build system — it automatically downloads `liblzma` via `FetchContent`.  
+Ready-made binaries for all platforms are available on the [Releases](https://github.com/blackeangel/utils/releases) page.
 
 #### Requirements
 
-| Tool | Version |
-|------|---------|
-| Android NDK | r21+ (r25+ recommended) |
+| Tool | Minimum version |
+|------|----------------|
 | CMake | 3.20+ |
 | Ninja | any recent |
-| C++ compiler | C++20 support |
+| GCC / Clang | C++20 support |
+| Android NDK | r21+ (r25c recommended) — **Android only** |
+
+> **Note:** On first build CMake automatically fetches `liblzma` (XZ Utils) from GitHub.  
+> Subsequent builds are fully offline. Cache is reused by GitHub Actions as well.
 
 ---
 
-#### Method 1 — CMake + Ninja (Linux / Termux / macOS)
+#### Linux — native x86_64
 
 ```bash
-# Clone
 git clone https://github.com/blackeangel/utils.git
 cd utils
 
-# Set NDK path
-export ANDROID_NDK=/path/to/android-ndk
+cmake -S . -B build -GNinja -DCMAKE_BUILD_TYPE=Release
+cmake --build build -- -j$(nproc)
 
-# Build for arm64-v8a
-mkdir build && cd build
-cmake .. \
-  -DANDROID_ABI=arm64-v8a \
-  -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK/build/cmake/android.toolchain.cmake \
-  -DANDROID_NATIVE_API_LEVEL=30 \
-  -GNinja
-ninja
-
-# Binary: build/utils   (or out/arm64-v8a/bin_utils after build2.sh)
+# Binary: out/utils
+./out/utils help
 ```
-
-To build all ABIs at once, use the provided script:
-```bash
-chmod +x build2.sh
-./build2.sh
-# Outputs: out/armeabi-v7a/bin_utils  out/arm64-v8a/bin_utils
-```
-
-> **Note:** CMake automatically fetches `liblzma` (XZ Utils) from GitHub on first build.  
-> Internet access is required, or pre-run `cmake ..` once with internet and then build offline.
 
 ---
 
-#### Method 2 — CMake + Ninja (Windows)
+#### Windows — native x86_64 (MinGW-w64 via MSYS2)
+
+1. Install [MSYS2](https://www.msys2.org/), then in **MINGW64** shell:
+
+```bash
+pacman -S mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake mingw-w64-x86_64-ninja
+
+git clone https://github.com/blackeangel/utils.git
+cd utils
+
+cmake -S . -B build -GNinja -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++
+cmake --build build -- -j$(nproc)
+
+# Binary: out/utils.exe
+./out/utils.exe help
+```
+
+---
+
+#### Android — CMake + Ninja (Linux / Termux / macOS)
+
+```bash
+export ANDROID_NDK=/path/to/android-ndk
+
+cmake -S . -B build -GNinja \
+  -DANDROID_ABI=arm64-v8a \
+  -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK/build/cmake/android.toolchain.cmake \
+  -DANDROID_NATIVE_API_LEVEL=30 \
+  -DANDROID_STL=c++_static \
+  -DCMAKE_BUILD_TYPE=Release
+cmake --build build -- -j$(nproc)
+
+# Binary: out/utils
+```
+
+To build all ABIs at once use the provided script:
+```bash
+chmod +x build2.sh && ./build2.sh
+# Outputs: out/armeabi-v7a/bin_utils  out/arm64-v8a/bin_utils
+```
+
+---
+
+#### Android — CMake + Ninja (Windows)
 
 ```bat
 set ANDROID_NDK=C:\android-ndk
 
-mkdir build && cd build
-cmake.exe .. ^
+cmake -S . -B build -GNinja ^
   -DANDROID_ABI=arm64-v8a ^
   -DCMAKE_TOOLCHAIN_FILE=%ANDROID_NDK%\build\cmake\android.toolchain.cmake ^
   -DANDROID_NATIVE_API_LEVEL=30 ^
-  -GNinja
-ninja.exe
+  -DANDROID_STL=c++_static ^
+  -DCMAKE_BUILD_TYPE=Release
+cmake --build build
 ```
 
-Or use the script (edit NDK path inside first):
-```bat
-build2.bat
-```
+Or use the script (edit NDK path inside first): `build2.bat`
 
 ---
 
-#### Method 3 — ndk-build (Linux / Termux)
+#### Android — ndk-build (Linux / Termux)
 
 ```bash
 export PATH=$PATH:/path/to/android-ndk
-ndk-build NDK_PROJECT_PATH=. NDK_APP_LIBS_OUT=out NDK_APPLICATION_MK=Application.mk
+chmod +x build.sh && ./build.sh
 # Outputs: out/armeabi-v7a/bin_utils  out/arm64-v8a/bin_utils
 ```
 
-Or use the script:
-```bash
-chmod +x build.sh
-./build.sh
-```
+---
+
+#### Android — ndk-build (Windows)
+
+Edit NDK path inside the script, then run: `build.bat`
 
 ---
 
-#### Method 4 — ndk-build (Windows)
+#### GitHub Actions (automatic)
 
-```bat
-set PATH=%PATH%;C:\android-ndk
-ndk-build NDK_PROJECT_PATH=. NDK_APP_LIBS_OUT=out NDK_APPLICATION_MK=Application.mk
-```
-
-Or use the script (edit NDK path inside first):
-```bat
-build.bat
-```
-
----
-
-#### Native build on Linux (for testing, not Android)
+| Workflow | Trigger | Produces |
+|----------|---------|---------|
+| **CI** | push to `main`, pull request | build check for Linux + Windows + Android |
+| **Release** | push tag `v*` or manual dispatch | GitHub Release with binaries for all 6 targets |
 
 ```bash
-mkdir build_native && cd build_native
-cmake .. -GNinja
-ninja
-./utils help
+# Create a release
+git tag v1.0.0
+git push origin v1.0.0
+# → Release page gets: Linux tar.gz, Windows zip, 4× Android zip
 ```
 
 ---
@@ -564,110 +581,127 @@ utils simg2simg <input_sparse> <output_prefix> <max_size_bytes>
 
 ### Сборка
 
-Проект поддерживает два способа сборки: **ndk-build** (через `Android.mk`) и **CMake + Ninja** (через `CMakeLists.txt`).  
-CMake предпочтителен — он автоматически загружает `liblzma` (XZ Utils) через `FetchContent`.
+Проект поддерживает три целевых платформы: **Linux**, **Windows** и **Android**.  
+Предпочтительная система сборки — CMake + Ninja: она автоматически загружает `liblzma` через `FetchContent`.  
+Готовые бинарники для всех платформ доступны на странице [Releases](https://github.com/blackeangel/utils/releases).
 
 #### Требования
 
-| Инструмент | Версия |
-|------------|--------|
-| Android NDK | r21+ (рекомендуется r25+) |
+| Инструмент | Минимальная версия |
+|------------|-------------------|
 | CMake | 3.20+ |
 | Ninja | любая свежая |
-| Компилятор C++ | поддержка C++20 |
+| GCC / Clang | поддержка C++20 |
+| Android NDK | r21+ (рекомендуется r25c) — **только для Android** |
+
+> **Примечание:** При первой сборке CMake автоматически загружает `liblzma` (XZ Utils) с GitHub.  
+> Последующие сборки работают полностью оффлайн. Кэш также используется GitHub Actions.
 
 ---
 
-#### Способ 1 — CMake + Ninja (Linux / Termux / macOS)
+#### Linux — нативная сборка x86_64
 
 ```bash
-# Клонировать репозиторий
 git clone https://github.com/blackeangel/utils.git
 cd utils
 
-# Указать путь к NDK
+cmake -S . -B build -GNinja -DCMAKE_BUILD_TYPE=Release
+cmake --build build -- -j$(nproc)
+
+# Бинарник: out/utils
+./out/utils help
+```
+
+---
+
+#### Windows — нативная сборка x86_64 (MinGW-w64 через MSYS2)
+
+1. Установите [MSYS2](https://www.msys2.org/), затем в оболочке **MINGW64**:
+
+```bash
+pacman -S mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake mingw-w64-x86_64-ninja
+
+git clone https://github.com/blackeangel/utils.git
+cd utils
+
+cmake -S . -B build -GNinja -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++
+cmake --build build -- -j$(nproc)
+
+# Бинарник: out/utils.exe
+./out/utils.exe help
+```
+
+---
+
+#### Android — CMake + Ninja (Linux / Termux / macOS)
+
+```bash
 export ANDROID_NDK=/path/to/android-ndk
 
-# Сборка для arm64-v8a
-mkdir build && cd build
-cmake .. \
+cmake -S . -B build -GNinja \
   -DANDROID_ABI=arm64-v8a \
   -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK/build/cmake/android.toolchain.cmake \
   -DANDROID_NATIVE_API_LEVEL=30 \
-  -GNinja
-ninja
+  -DANDROID_STL=c++_static \
+  -DCMAKE_BUILD_TYPE=Release
+cmake --build build -- -j$(nproc)
 
-# Бинарник: build/utils   (или out/arm64-v8a/bin_utils после build2.sh)
+# Бинарник: out/utils
 ```
 
 Для сборки всех ABI сразу используйте готовый скрипт:
 ```bash
-chmod +x build2.sh
-./build2.sh
+chmod +x build2.sh && ./build2.sh
 # Результат: out/armeabi-v7a/bin_utils  out/arm64-v8a/bin_utils
 ```
 
-> **Примечание:** CMake автоматически загружает `liblzma` (XZ Utils) с GitHub при первой сборке.  
-> Требуется доступ в интернет, либо выполните `cmake ..` один раз с интернетом, а затем собирайте оффлайн.
-
 ---
 
-#### Способ 2 — CMake + Ninja (Windows)
+#### Android — CMake + Ninja (Windows)
 
 ```bat
 set ANDROID_NDK=C:\android-ndk
 
-mkdir build && cd build
-cmake.exe .. ^
+cmake -S . -B build -GNinja ^
   -DANDROID_ABI=arm64-v8a ^
   -DCMAKE_TOOLCHAIN_FILE=%ANDROID_NDK%\build\cmake\android.toolchain.cmake ^
   -DANDROID_NATIVE_API_LEVEL=30 ^
-  -GNinja
-ninja.exe
+  -DANDROID_STL=c++_static ^
+  -DCMAKE_BUILD_TYPE=Release
+cmake --build build
 ```
 
-Или используйте скрипт (предварительно отредактируйте путь к NDK):
-```bat
-build2.bat
-```
+Или используйте скрипт (отредактируйте путь к NDK): `build2.bat`
 
 ---
 
-#### Способ 3 — ndk-build (Linux / Termux)
+#### Android — ndk-build (Linux / Termux)
 
 ```bash
 export PATH=$PATH:/path/to/android-ndk
-ndk-build NDK_PROJECT_PATH=. NDK_APP_LIBS_OUT=out NDK_APPLICATION_MK=Application.mk
+chmod +x build.sh && ./build.sh
 # Результат: out/armeabi-v7a/bin_utils  out/arm64-v8a/bin_utils
 ```
 
-Или через скрипт:
-```bash
-chmod +x build.sh
-./build.sh
-```
+---
+
+#### Android — ndk-build (Windows)
+
+Отредактируйте путь к NDK внутри скрипта, затем запустите: `build.bat`
 
 ---
 
-#### Способ 4 — ndk-build (Windows)
+#### GitHub Actions (автоматически)
 
-```bat
-set PATH=%PATH%;C:\android-ndk
-ndk-build NDK_PROJECT_PATH=. NDK_APP_LIBS_OUT=out NDK_APPLICATION_MK=Application.mk
-```
-
-Или через скрипт (отредактируйте путь к NDK):
-```bat
-build.bat
-```
-
----
-
-#### Нативная сборка на Linux (для тестирования, не для Android)
+| Workflow | Триггер | Результат |
+|----------|---------|-----------|
+| **CI** | push в `main`, pull request | проверка сборки Linux + Windows + Android |
+| **Release** | push тега `v*` или ручной запуск | GitHub Release с бинарниками для всех 6 платформ |
 
 ```bash
-mkdir build_native && cd build_native
-cmake .. -GNinja
-ninja
-./utils help
+# Создать релиз
+git tag v1.0.0
+git push origin v1.0.0
+# → На странице Releases появятся: Linux tar.gz, Windows zip, 4× Android zip
 ```

@@ -10,48 +10,107 @@ on:
     branches: [ main ]
 
 jobs:
-  build:
-    name: Build (${{ matrix.abi }})
+  # ── Linux native ─────────────────────────────────────────────────────────────
+  build-linux:
+    name: Linux x86_64
     runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
 
+      - name: Install Ninja
+        run: sudo apt-get install -y ninja-build
+
+      - name: Cache FetchContent
+        uses: actions/cache@v4
+        with:
+          path: build-linux/_deps
+          key: deps-linux-${{ hashFiles('CMakeLists.txt') }}
+          restore-keys: deps-linux-
+
+      - name: Configure
+        run: cmake -S . -B build-linux -GNinja -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build-linux -- -j$(nproc)
+
+      - name: Check
+        run: file out/utils && ./out/utils help | head -5
+
+  # ── Windows native (MinGW-w64) ───────────────────────────────────────────────
+  build-windows:
+    name: Windows x86_64
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-ninja
+
+      - name: Cache FetchContent
+        uses: actions/cache@v4
+        with:
+          path: build-windows/_deps
+          key: deps-windows-${{ hashFiles('CMakeLists.txt') }}
+          restore-keys: deps-windows-
+
+      - name: Configure
+        run: |
+          cmake -S . -B build-windows -GNinja -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++
+
+      - name: Build
+        run: cmake --build build-windows -- -j$(nproc)
+
+      - name: Check
+        run: out/utils.exe help | head -5
+
+  # ── Android (NDK, matrix) ────────────────────────────────────────────────────
+  build-android:
+    name: Android ${{ matrix.abi }}
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
         abi: [ armeabi-v7a, arm64-v8a ]
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup NDK r25c
-        uses: nttld/setup-ndk@v1
-        id: setup-ndk
+      - uses: nttld/setup-ndk@v1
+        id: ndk
         with:
           ndk-version: r25c
           add-to-path: true
 
-      - name: Cache CMake / FetchContent
+      - name: Install Ninja
+        run: sudo apt-get install -y ninja-build
+
+      - name: Cache FetchContent
         uses: actions/cache@v4
         with:
-          path: |
-            build-${{ matrix.abi }}/_deps
-          key: deps-${{ matrix.abi }}-${{ hashFiles('CMakeLists.txt') }}
-          restore-keys: deps-${{ matrix.abi }}-
+          path: build-android-${{ matrix.abi }}/_deps
+          key: deps-android-${{ matrix.abi }}-${{ hashFiles('CMakeLists.txt') }}
+          restore-keys: deps-android-${{ matrix.abi }}-
 
       - name: Configure
         run: |
-          cmake -S . -B build-${{ matrix.abi }} \
+          cmake -S . -B build-android-${{ matrix.abi }} -GNinja \
             -DANDROID_ABI=${{ matrix.abi }} \
-            -DCMAKE_TOOLCHAIN_FILE=${{ steps.setup-ndk.outputs.ndk-path }}/build/cmake/android.toolchain.cmake \
+            -DCMAKE_TOOLCHAIN_FILE=${{ steps.ndk.outputs.ndk-path }}/build/cmake/android.toolchain.cmake \
             -DANDROID_NATIVE_API_LEVEL=30 \
             -DANDROID_STL=c++_static \
-            -DCMAKE_BUILD_TYPE=Release \
-            -GNinja
+            -DCMAKE_BUILD_TYPE=Release
 
       - name: Build
-        run: cmake --build build-${{ matrix.abi }} -- -j$(nproc)
+        run: cmake --build build-android-${{ matrix.abi }} -- -j$(nproc)
 
-      - name: Check binary
-        run: |
-          file build-${{ matrix.abi }}/utils
-          ls -lh build-${{ matrix.abi }}/utils
+      - name: Check
+        run: file out/utils

@@ -9,7 +9,13 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
 endif()
 
-set(CMAKE_CXX_FLAGS_RELEASE "-pipe -O2 -s")
+if(MSVC)
+    set(CMAKE_CXX_FLAGS_RELEASE "/O2 /DNDEBUG")
+    set(CMAKE_C_FLAGS_RELEASE   "/O2 /DNDEBUG")
+else()
+    set(CMAKE_CXX_FLAGS_RELEASE "-pipe -O2 -s")
+    set(CMAKE_C_FLAGS_RELEASE   "-pipe -O2 -s")
+endif()
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/out)
 
 # ── Линковка ──────────────────────────────────────────────────────────────────
@@ -17,11 +23,20 @@ set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/out)
 # Нативно в Termux        → только -static-libstdc++ (bionic libc.so без .a)
 # Linux / macOS / Windows → полный -static
 if(CMAKE_CROSSCOMPILING AND CMAKE_ANDROID_NDK)
+    # NDK cross-compile: full static
     set(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
     set(CMAKE_EXE_LINKER_FLAGS "-static")
 elseif(ANDROID)
+    # Termux native: bionic has no static libc.so
     set(CMAKE_EXE_LINKER_FLAGS "-static-libstdc++")
+elseif(MSVC)
+    # MSVC: static runtime via /MT
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+elseif(WIN32)
+    # MinGW: static libgcc + libstdc++
+    set(CMAKE_EXE_LINKER_FLAGS "-static -static-libgcc -static-libstdc++")
 else()
+    # Linux native: full static
     set(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
     set(CMAKE_EXE_LINKER_FLAGS "-static")
 endif()
@@ -122,13 +137,16 @@ add_library(png STATIC ${LIBPNG_SRC_FILES})
 # ── minizip ───────────────────────────────────────────────────────────────────
 set(LIBMINIZIP_SRC_FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/minizip/ioapi.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/minizip/iowin32.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/minizip/miniunz.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/minizip/minizip.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/minizip/mztools.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/minizip/unzip.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/minizip/zip.c
 )
+if(WIN32)
+    list(APPEND LIBMINIZIP_SRC_FILES
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/minizip/iowin32.c)
+endif()
 add_library(minizip STATIC ${LIBMINIZIP_SRC_FILES})
 target_link_libraries(png z minizip)
 
@@ -140,6 +158,12 @@ file(GLOB SRCS
     "${PROJECT_SOURCE_DIR}/src/md1img/*"
     "${PROJECT_SOURCE_DIR}/src/*"
 )
+# sparse_fuzzer is a standalone tool - not part of utils
+list(FILTER SRCS EXCLUDE REGEX "sparse_fuzzer\\.cpp$")
+# mapped_file uses mmap (POSIX only) - use stub on Windows
+if(WIN32)
+    list(FILTER SRCS EXCLUDE REGEX "mapped_file\\.cpp$")
+endif()
 
 add_executable(utils ${SRCS})
 
