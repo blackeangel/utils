@@ -53,7 +53,7 @@ ParseResult MD1IMG::parse_cmd_line(int argc, char* argv[]) {
 ProcessResult MD1IMG::process() {
     if (mode == "unpack") {
         try {
-            process_file(input_path, output_dir);
+            process_file(input_path, output_dir.string());
         } catch (const std::exception& e) {
             std::cerr << "md1img unpack error: " << e.what() << "\n";
             return ProcessResult::breaked;
