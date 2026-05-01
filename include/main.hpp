@@ -387,6 +387,23 @@ private:
 };
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+class Img2Sdat : public UtilBase
+{
+public:
+    void show_help() override;
+    ParseResult parse_cmd_line(int argc, char* argv[]) override;
+    ProcessResult process() override;
+private:
+    std::string input_path;
+    std::string outdir      = ".";
+    std::string prefix      = "system";
+    int         version     = 4;
+    bool        use_brotli  = false;
+    int         br_quality  = 6;
+};
+
+///////////////////////////////////////////////////////////////
+
 class AvbFixed : public UtilBase
 {
 public:

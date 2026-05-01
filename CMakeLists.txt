@@ -95,6 +95,19 @@ if(CMAKE_CROSSCOMPILING OR ANDROID)
         ${PROJECT_SOURCE_DIR}/src/liblzma/simple
     )
     set(LZMA_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/src/liblzma/api)
+    # ── Vendored brotli (src/brotli/) ─────────────────────────────────────────
+    file(GLOB_RECURSE VENDORED_BROTLI_SRCS
+        "${PROJECT_SOURCE_DIR}/src/brotli/common/*.c"
+        "${PROJECT_SOURCE_DIR}/src/brotli/enc/*.c"
+        "${PROJECT_SOURCE_DIR}/src/brotli/dec/*.c"
+    )
+    add_library(brotli STATIC ${VENDORED_BROTLI_SRCS})
+    target_include_directories(brotli PUBLIC
+        ${PROJECT_SOURCE_DIR}/src/brotli/include
+    )
+    set(BROTLI_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/src/brotli/include)
+    set(BROTLI_TARGET brotli)
+
 else()
     # ── FetchContent (native builds) ───────────────────────────────────────────
     FetchContent_Declare(
@@ -120,6 +133,24 @@ else()
     set(ENABLE_NLS           OFF CACHE BOOL "" FORCE)
     FetchContent_MakeAvailable(xz)
     set(LZMA_INCLUDE_DIR ${xz_SOURCE_DIR}/src/liblzma/api)
+
+    # ── FetchContent brotli — download sources, build ourselves ───────────────
+    FetchContent_Declare(
+        brotli
+        GIT_REPOSITORY https://github.com/google/brotli.git
+        GIT_TAG        v1.1.0
+        GIT_SHALLOW    TRUE
+    )
+    FetchContent_Populate(brotli)
+    file(GLOB_RECURSE FETCHED_BROTLI_SRCS
+        "${brotli_SOURCE_DIR}/c/common/*.c"
+        "${brotli_SOURCE_DIR}/c/enc/*.c"
+        "${brotli_SOURCE_DIR}/c/dec/*.c"
+    )
+    add_library(brotli STATIC ${FETCHED_BROTLI_SRCS})
+    target_include_directories(brotli PUBLIC ${brotli_SOURCE_DIR}/c/include)
+    set(BROTLI_INCLUDE_DIR ${brotli_SOURCE_DIR}/c/include)
+    set(BROTLI_TARGET brotli)
 endif()
 
 # ── include_directories ───────────────────────────────────────────────────────
@@ -209,11 +240,13 @@ add_executable(utils ${SRCS})
 
 target_include_directories(utils PRIVATE
     ${LZMA_INCLUDE_DIR}
+    ${BROTLI_INCLUDE_DIR}
 )
 
 target_link_libraries(utils
     png
     z
     liblzma
+    ${BROTLI_TARGET}
     Threads::Threads
 )

@@ -227,6 +227,19 @@ src/liblzma/tuklib_physmem.c
 
 include $(BUILD_STATIC_LIBRARY)
 
+
+#####################################################################################
+# libbrotli (vendored Google Brotli, encoder + decoder)
+include $(CLEAR_VARS)
+LOCAL_MODULE := libbrotli
+LOCAL_C_INCLUDES := src/brotli/include
+LOCAL_CFLAGS := -O2
+LOCAL_SRC_FILES := \
+$(wildcard src/brotli/common/*.c) \
+$(wildcard src/brotli/enc/*.c) \
+$(wildcard src/brotli/dec/*.c)
+include $(BUILD_STATIC_LIBRARY)
+
 #####################################################################################
 
 include $(CLEAR_VARS)
@@ -239,6 +252,7 @@ LOCAL_C_INCLUDES := \
 	src/liblzma \
 	src/liblzma/api \
 	src/md1img \
+	src/brotli/include \
     src/e2fsdroid/ext2fs
 
 LOCAL_CXXFLAGS := -fexceptions -std=c++2a -pipe -O2 -s -DLZMA_API_STATIC
@@ -254,7 +268,8 @@ z \
 sparse \
 libpng \
 minizip \
-liblzma
+liblzma \
+libbrotli
 
 include $(BUILD_EXECUTABLE)
 

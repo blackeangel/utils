@@ -39,6 +39,8 @@ where function is:
 
   writekey <image_file> <offset> <-fhb> <file_key_value>
 
+  img2sdat <system.img> [-o outdir] [-v version] [-p prefix] [-b [quality]]
+
   avb_fixed <vbmeta.img> [--disable_verified | --restore]
 
   append2simg <output> <input>
@@ -96,6 +98,9 @@ std::unique_ptr<UtilBase> make_object(const char* name)
     }
     if (name == "logo_mtk"sv) {
         return std::make_unique<LOGO_MTK>();
+    }
+    if (name == "img2sdat"sv) {
+        return std::make_unique<Img2Sdat>();
     }
     if (name == "avb_fixed"sv) {
         return std::make_unique<AvbFixed>();
