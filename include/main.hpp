@@ -112,24 +112,13 @@ private:
 class Sdat2Img : public UtilBase
 {
 public:
-    // Помощь по параметрам командной строки
     void show_help() override;
-    // Парсить командную строку
     ParseResult parse_cmd_line(int argc, char* argv[]) override;
-    // Искать строку в файле
     ProcessResult process() override;
-
 private:
-    std::pair<int, std::vector<std::pair<int, int>>> parse_transfer_list_file(const std::string& path);
-    // Create empty image with Correct size;
-    void initOutputFile(const std::string& output_file);
-
-    std::vector<std::pair<int, int>> all_block_sets;
-    unsigned int max_file_size = 0;
-
-    std::filesystem::path transf_file;
-    std::filesystem::path new_dat_file;
-    std::filesystem::path img_file;
+    std::string transfer_path;
+    std::string input_path;
+    std::string output_path;
 };
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

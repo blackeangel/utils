@@ -1,214 +1,254 @@
+/*
+ * sdat2img.cpp — converts Android sparse data image back to raw image.
+ * Supports both plain .new.dat and Brotli-compressed .new.dat.br input.
+ *
+ * Original Python: xpirt, luxi78, howellzhu
+ * C++ / Brotli streaming rewrite: blackeangel
+ * Adapted to UtilBase pattern for the utils project.
+ */
+
 #include "../include/main.hpp"
 
-// ������ �� ���������� ��������� ������
-void Sdat2Img::show_help()
+#include <fstream>
+#include <sstream>
+#include <algorithm>
+#include <brotli/decode.h>
+
+static const uint64_t S2I_BLOCK = 4096;
+static const size_t   S2I_CHUNK = 1 << 16;
+
+// ── Transfer list ─────────────────────────────────────────────────────────────
+
+struct S2ITransfer {
+    uint64_t total_blocks = 0;
+    std::vector<std::pair<uint64_t,uint64_t>> ranges;
+};
+
+static S2ITransfer s2i_parse_transfer(const std::string& path)
 {
-    fprintf(stderr, R"EOF(
-sdat2img
+    std::ifstream in(path);
+    if (!in) throw std::runtime_error("Cannot open transfer.list: " + path);
 
-Usage:
+    S2ITransfer td;
+    std::string line;
+    std::getline(in, line);            // version
+    std::getline(in, line);            // total blocks
+    td.total_blocks = std::stoull(line);
+    std::getline(in, line);            // stash entries
+    std::getline(in, line);            // max stash size
 
-    sdat2img <transfer_list> <new_dat_file> <output_img_file>
-    Where <output_img_file> path to output img file, optionaly
-)EOF");
-    fprintf(stderr, "\n");
+    while (std::getline(in, line)) {
+        if (line.rfind("new ", 0) != 0) continue;
+        std::istringstream ss(line);
+        std::string cmd, range_str;
+        ss >> cmd >> range_str;
+        std::stringstream rs(range_str);
+        std::string tok;
+        std::vector<uint64_t> nums;
+        while (std::getline(rs, tok, ','))
+            if (!tok.empty()) nums.push_back(std::stoull(tok));
+        if (nums.size() < 3) continue;
+        for (size_t i = 1; i + 1 < nums.size(); i += 2)
+            td.ranges.emplace_back(nums[i], nums[i+1]);
+    }
+    return td;
 }
 
-// ������� ��������� ������
-ParseResult Sdat2Img::parse_cmd_line(int argc, char* argv[])
+// ── carry-buffer flush ────────────────────────────────────────────────────────
+
+static void s2i_flush(
+    std::vector<uint8_t>& carry, size_t& carry_size,
+    std::ofstream& out,
+    const std::vector<std::pair<uint64_t,uint64_t>>& ranges,
+    size_t& ri, uint64_t& cur_blk)
 {
-    if(argc < 2 || argc > 3){show_help();}
-    if (argc == 2)
-    {
-        std::string arg4;
-        std::string s(argv[1]);
-        arg4 = replace(s, "new.dat", "img");
-        transf_file = argv[0];
-        new_dat_file = argv[1];
-        img_file =  arg4;
-    }else if (argc == 3)
-    {
-        transf_file = argv[0];
-        new_dat_file = argv[1];
-        img_file =  argv[2];
-    }else {return ParseResult::not_enough;}
-    return ParseResult::ok;
+    size_t off = 0;
+    while (carry_size - off >= S2I_BLOCK && ri < ranges.size()) {
+        auto [start, end] = ranges[ri];
+        uint64_t range_blks = end - start;
+        if (cur_blk >= range_blks) { cur_blk = 0; ri++; continue; }
+        uint64_t avail    = (carry_size - off) / S2I_BLOCK;
+        uint64_t to_write = std::min(range_blks - cur_blk, avail);
+        out.seekp(static_cast<std::streamoff>((start + cur_blk) * S2I_BLOCK));
+        out.write(reinterpret_cast<const char*>(carry.data() + off),
+                  static_cast<std::streamsize>(to_write * S2I_BLOCK));
+        off     += to_write * S2I_BLOCK;
+        cur_blk += to_write;
+    }
+    size_t rem = carry_size - off;
+    if (rem && off) std::copy(carry.data()+off, carry.data()+carry_size, carry.data());
+    carry_size = rem;
 }
 
-// �������� �������
-ProcessResult Sdat2Img::process()
+// ── plain .new.dat ────────────────────────────────────────────────────────────
+
+static ProcessResult s2i_copy_plain(const S2ITransfer& td,
+                                    std::ifstream& in, std::ofstream& out)
 {
-    std::cout << "\n===================================================================" << std::endl;
-    std::cout << "Designed by blackeangel (blackeangel@mail.ru) special for UKA tools" << std::endl;
-    std::cout << "Re-written in C++ from xpirt - luxi78 - howellzhu work in python" << std::endl;
-    std::cout << "===================================================================" << std::endl;
+    std::vector<uint8_t> buf(S2I_BLOCK);
+    size_t ri = 0; uint64_t cur_blk = 0, written = 0;
 
-    std::string TRANSFER_LIST_FILE = transf_file.string();
-    std::string NEW_DATA_FILE = new_dat_file.string();
-    std::string OUTPUT_IMAGE_FILE = img_file.string();
-
-    std::ifstream transfer_list_file(TRANSFER_LIST_FILE);
-    if (!transfer_list_file.is_open())
-    {
-        std::cerr << TRANSFER_LIST_FILE << " not found!" << std::endl;
-        exit(2);
+    while (ri < td.ranges.size()) {
+        in.read(reinterpret_cast<char*>(buf.data()), S2I_BLOCK);
+        if (in.gcount() != static_cast<std::streamsize>(S2I_BLOCK)) break;
+        auto [start, end] = td.ranges[ri];
+        out.seekp(static_cast<std::streamoff>((start + cur_blk) * S2I_BLOCK));
+        out.write(reinterpret_cast<const char*>(buf.data()), S2I_BLOCK);
+        if (++cur_blk >= end - start) { cur_blk = 0; ri++; }
+        if (++written % 5000 == 0)
+            std::cout << "\r  " << written << " blocks" << std::flush;
     }
-    transfer_list_file.close();
-
-    parse_transfer_list_file(TRANSFER_LIST_FILE);
-
-    std::ifstream new_data_file(NEW_DATA_FILE, std::ios::binary);
-    if (!new_data_file.is_open())
-    {
-        std::cerr << NEW_DATA_FILE << " not found!" << std::endl;
-        exit(2);
-    }
-
-    initOutputFile(OUTPUT_IMAGE_FILE);
-
-    std::fstream output_img(OUTPUT_IMAGE_FILE, std::ios::in | std::ios::out | std::ios::binary);
-    if (!output_img.is_open())
-    {
-        std::cerr << OUTPUT_IMAGE_FILE << " not found!" << std::endl;
-        exit(2);
-    }
-
-    uint8_t *data;
-    for (std::pair<int, int> block : all_block_sets)
-    {
-        long begin = block.first;
-        long end = block.second;
-        long block_count = end - begin;
-        long blocks = block_count * BLOCK_SIZE;
-        long long position = (long long)begin * BLOCK_SIZE;
-        unsigned long offset = position % ULONG_MAX;
-        int cycles = position / ULONG_MAX;
-
-        data = (uint8_t *)malloc(blocks);
-        if (data == nullptr)
-        {
-            std::cerr << "Out of memory error!" << std::endl;
-            exit(-1);
-        }
-
-        new_data_file.read((char *)data, blocks);
-
-        // in the case of images greater than 4GB if its even possible
-        if (cycles > 0)
-        {
-            output_img.seekp(0, std::ios::beg);
-            for (int i = 0; i < cycles; i++)
-            {
-                output_img.seekp(ULONG_MAX, std::ios::cur);
-            }
-            output_img.seekp(offset, std::ios::cur);
-        }
-        else
-        {
-            output_img.seekp(position);
-        }
-
-        output_img.write((char *)data, blocks);
-        free(data);
-    }
-
-    output_img.close();
-    new_data_file.close();
-
-    std::cout << "\nDone!" << std::endl;
-
+    std::cout << "\r  " << written << " blocks written\n";
     return ProcessResult::ok;
 }
 
-std::pair<int, std::vector<std::pair<int, int>>> Sdat2Img::parse_transfer_list_file(const std::string& path)
+// ── Brotli-compressed .new.dat.br  (streaming, constant RAM) ─────────────────
+
+static ProcessResult s2i_decompress_brotli(const S2ITransfer& td,
+                                            std::ifstream& in, std::ofstream& out)
 {
-    std::ifstream trans_list(path);
-    int version;
-    std::string line;
-    getline(trans_list, line);
-    version = atoi(line.c_str()); // First line in transfer list is the version number
-    int new_blocks;
-    getline(trans_list, line);
-    new_blocks = atoi(line.c_str()); // Second line in transfer list is the total number of blocks we expect to write
-    if (version == 1)
-    {
-        std::cout << "\nAndroid 5.0 detected!\n"
-                  << std::endl;
-    }
-    else if (version == 2)
-    {
-        std::cout << "\nAndroid 5.1 detected!\n"
-                  << std::endl;
-    }
-    else if (version == 3)
-    {
-        std::cout << "\nAndroid 6.x detected!\n"
-                  << std::endl;
-    }
-    else if (version == 4)
-    {
-        std::cout << "\nAndroid 7.0+ detected!\n"
-                  << std::endl;
-    }
-    else
-    {
-        std::cout << "\nUnknown Android version!\n"
-                  << std::endl;
-    }
-    if (version >= 2)
-    {
-        trans_list.get(); // Third line is how many stash entries are needed simultaneously
-        trans_list.get(); // Fourth line is the maximum number of blocks that will be stashed simultaneously
-    }
+    BrotliDecoderState* state =
+        BrotliDecoderCreateInstance(nullptr, nullptr, nullptr);
+    if (!state) { std::cerr << "Brotli init failed\n"; return ProcessResult::read_error; }
 
-    // Subsequent lines are all individual transfer commands
-    while (getline(trans_list, line))
-    {
-        std::vector<std::string> line_split = split(line, ' ');
-        std::string cmd = line_split[0];
-        if (cmd == "new")
-        {
-            std::vector<std::pair<int, int>> block_sets = rangeset(line_split[1]);
-            all_block_sets.insert(all_block_sets.end(), block_sets.begin(), block_sets.end());
+    std::vector<uint8_t> inbuf(S2I_CHUNK);
+    std::vector<uint8_t> outbuf(S2I_CHUNK);
+    std::vector<uint8_t> carry(S2I_CHUNK + S2I_BLOCK);
+    size_t carry_size = 0;
+    size_t ri = 0; uint64_t cur_blk = 0;
+    bool finished = false;
+
+    while (!finished) {
+        in.read(reinterpret_cast<char*>(inbuf.data()), S2I_CHUNK);
+        size_t bytes_read    = static_cast<size_t>(in.gcount());
+        const uint8_t* next_in = inbuf.data();
+        size_t avail_in      = bytes_read;
+
+        while (true) {
+            uint8_t* next_out  = outbuf.data();
+            size_t   avail_out = S2I_CHUNK;
+
+            auto res = BrotliDecoderDecompressStream(
+                state, &avail_in, &next_in, &avail_out, &next_out, nullptr);
+
+            size_t produced = S2I_CHUNK - avail_out;
+            if (produced) {
+                std::copy(outbuf.data(), outbuf.data() + produced,
+                          carry.data() + carry_size);
+                carry_size += produced;
+                s2i_flush(carry, carry_size, out, td.ranges, ri, cur_blk);
+                std::cout << "\r  range " << (ri+1) << "/" << td.ranges.size() << std::flush;
+            }
+
+            if (res == BROTLI_DECODER_RESULT_SUCCESS)          { finished = true; break; }
+            if (res == BROTLI_DECODER_RESULT_NEEDS_MORE_INPUT) break;
+            if (res == BROTLI_DECODER_RESULT_NEEDS_MORE_OUTPUT) continue;
+            if (res == BROTLI_DECODER_RESULT_ERROR) {
+                std::cerr << "\nBrotli error: "
+                          << BrotliDecoderErrorString(BrotliDecoderGetErrorCode(state)) << "\n";
+                BrotliDecoderDestroyInstance(state);
+                return ProcessResult::read_error;
+            }
         }
+        if (!finished && bytes_read == 0) break;
     }
-    trans_list.close();
 
-    int max_pair = 0;
-    for (auto block : all_block_sets)
-    {
-        max_pair = std::max(max_pair, block.second);
+    BrotliDecoderDestroyInstance(state);
+
+    if (!finished) {
+        std::cerr << "\nStream ended before completion\n";
+        return ProcessResult::read_error;
     }
-    max_file_size = max_pair * BLOCK_SIZE; // Rezult file size
+    if (ri < td.ranges.size())
+        std::cerr << "\nWarning: not all ranges written ("
+                  << ri << "/" << td.ranges.size() << ")\n";
 
-    return make_pair(max_file_size, all_block_sets);
+    std::cout << "\r  " << td.ranges.size() << "/" << td.ranges.size()
+              << " ranges written\n";
+    return ProcessResult::ok;
 }
 
-// Create empty image with Correct size;
-void Sdat2Img::initOutputFile(const std::string& output_file)
-{
-    std::ofstream output_file_obj(output_file, std::ios::binary);
-    long long position = max_file_size - 1;
-    //cout << "A file will be created with the size " << position << " bytes" <<endl;
-    unsigned long offset = position % ULONG_MAX;
-    int cycles = position / ULONG_MAX;
+// ── UtilBase interface ────────────────────────────────────────────────────────
 
-    // in the case of images greater than 4GB if its even possible
-    if (cycles > 0)
-    {
-        output_file_obj.seekp(0, std::ios::beg);
-        for (int i = 0; i < cycles; i++)
-        {
-            output_file_obj.seekp(ULONG_MAX, std::ios::cur);
-        }
-        output_file_obj.seekp(offset, std::ios::cur);
-    }
-    else
-    {
-        output_file_obj.seekp(position);
+void Sdat2Img::show_help() {
+    std::cout <<
+        "\nsdat2img\n\n"
+        "Usage:\n\n"
+        "  sdat2img <transfer.list> <input.new.dat[.br]> [output.img]\n\n"
+        "  transfer.list        transfer list produced by img2sdat\n"
+        "  input.new.dat        plain sparse data file\n"
+        "  input.new.dat.br     Brotli-compressed sparse data file\n"
+        "  output.img           output raw image (default: derived from input name)\n\n"
+        "  Brotli input is detected automatically from the .br extension.\n\n";
+}
+
+ParseResult Sdat2Img::parse_cmd_line(int argc, char* argv[]) {
+    if (argc < 2 || argc > 3) {
+        show_help();
+        return argc < 2 ? ParseResult::not_enough : ParseResult::wrong_option;
     }
 
-    output_file_obj.put('\0');
-    output_file_obj.flush();
-    output_file_obj.close();
+    transfer_path = argv[0];
+    input_path    = argv[1];
+
+    if (argc == 3) {
+        output_path = argv[2];
+    } else {
+        output_path = input_path;
+        if (output_path.size() >= 3 &&
+            output_path.substr(output_path.size()-3) == ".br")
+            output_path.resize(output_path.size()-3);
+        const std::string nd = ".new.dat";
+        auto pos = output_path.rfind(nd);
+        if (pos != std::string::npos)
+            output_path.replace(pos, nd.size(), ".img");
+        else
+            output_path += ".img";
+    }
+    return ParseResult::ok;
+}
+
+ProcessResult Sdat2Img::process() {
+    std::cout << "sdat2img\n\n"
+              << "  Transfer : " << transfer_path << "\n"
+              << "  Input    : " << input_path    << "\n"
+              << "  Output   : " << output_path   << "\n\n";
+
+    S2ITransfer td;
+    try { td = s2i_parse_transfer(transfer_path); }
+    catch (const std::exception& e) {
+        std::cerr << e.what() << "\n";
+        return ProcessResult::open_error;
+    }
+
+    if (td.total_blocks == 0 || td.ranges.empty()) {
+        std::cerr << "Error: transfer list is empty or invalid\n";
+        return ProcessResult::read_error;
+    }
+    std::cout << "  Blocks   : " << td.total_blocks << "\n"
+              << "  Ranges   : " << td.ranges.size() << "\n\n";
+
+    std::ifstream in(input_path, std::ios::binary);
+    if (!in) { std::cerr << "Cannot open: " << input_path << "\n"; return ProcessResult::open_error; }
+    std::ofstream out(output_path, std::ios::binary | std::ios::trunc);
+    if (!out) { std::cerr << "Cannot create: " << output_path << "\n"; return ProcessResult::open_error; }
+
+    // Pre-allocate image to full size
+    uint64_t img_size = td.total_blocks * S2I_BLOCK;
+    out.seekp(static_cast<std::streamoff>(img_size - 1));
+    out.write("", 1);
+    out.flush();
+
+    bool is_brotli = input_path.size() >= 3 &&
+                     input_path.substr(input_path.size()-3) == ".br";
+
+    std::cout << "  Mode     : " << (is_brotli ? "Brotli decompress" : "plain copy") << "\n";
+
+    ProcessResult res = is_brotli
+        ? s2i_decompress_brotli(td, in, out)
+        : s2i_copy_plain(td, in, out);
+
+    if (res == ProcessResult::ok)
+        std::cout << "\nDone → " << output_path << "\n";
+    return res;
 }
