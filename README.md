@@ -145,10 +145,27 @@ If `output_dir` / `output_file` is omitted, defaults are placed next to the inpu
 ---
 
 #### `sdat2img`
-Convert a sparse `.dat` + transfer list to a raw image.
+Convert a sparse data image (`.new.dat` or `.new.dat.br`) + transfer list back to a raw image.  
+Brotli input is detected automatically from the `.br` extension.
 ```
-utils sdat2img <transfer_list> <new_dat_file> <output_img_file>
+utils sdat2img <transfer.list> <input.new.dat[.br]> [output.img]
 ```
+- `output.img` — optional; default derived from input name (`system.new.dat.br` → `system.img`)
+
+---
+
+#### `img2sdat`
+Convert a sparse or raw EXT4 image to Android sparse data format (`.new.dat` + `.transfer.list`).  
+Supports optional Brotli compression with streaming output (constant RAM usage).
+```
+utils img2sdat <system.img> [-o outdir] [-v version] [-p prefix] [-b [quality]]
+```
+- `-o outdir` — output directory (default: `.`)
+- `-v version` — transfer list version `1`–`4` (default: `4`; 1=Android 5.0, 2=5.1, 3=6.0, 4=7.x/8.x)
+- `-p prefix` — output filename prefix (default: `system`)
+- `-b [quality]` — compress `.new.dat` with Brotli → `.new.dat.br`; quality `0`–`11`, default `6`
+
+Outputs: `<prefix>.new.dat[.br]`  `<prefix>.transfer.list`
 
 ---
 
@@ -497,10 +514,27 @@ utils md1img pack   <input_dir>  [output_file]
 ---
 
 #### `sdat2img`
-Конвертировать sparse `.dat` + transfer list в raw-образ.
+Конвертировать sparse data image (`.new.dat` или `.new.dat.br`) + transfer list обратно в raw-образ.  
+Brotli-режим определяется автоматически по расширению `.br`.
 ```
-utils sdat2img <transfer_list> <new_dat_file> <output_img_file>
+utils sdat2img <transfer.list> <input.new.dat[.br]> [output.img]
 ```
+- `output.img` — необязательно; по умолчанию выводится из имени входного файла (`system.new.dat.br` → `system.img`)
+
+---
+
+#### `img2sdat`
+Конвертировать sparse или raw EXT4-образ в Android sparse data формат (`.new.dat` + `.transfer.list`).  
+Поддерживает опциональное Brotli-сжатие в потоковом режиме (постоянный расход RAM).
+```
+utils img2sdat <system.img> [-o outdir] [-v version] [-p prefix] [-b [quality]]
+```
+- `-o outdir` — выходная директория (по умолчанию: `.`)
+- `-v version` — версия transfer list `1`–`4` (по умолчанию: `4`; 1=Android 5.0, 2=5.1, 3=6.0, 4=7.x/8.x)
+- `-p prefix` — префикс выходных файлов (по умолчанию: `system`)
+- `-b [quality]` — сжать `.new.dat` через Brotli → `.new.dat.br`; качество `0`–`11`, по умолчанию `6`
+
+Результат: `<prefix>.new.dat[.br]`  `<prefix>.transfer.list`
 
 ---
 
