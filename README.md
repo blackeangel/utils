@@ -357,19 +357,7 @@ Edit NDK path inside the script, then run: `build.bat`
 
 ---
 
-#### GitHub Actions (automatic)
 
-| Workflow | Trigger | Produces |
-|----------|---------|---------|
-| **CI** | push to `main`, pull request | build check for Linux + Windows + Android |
-| **Release** | push tag `v*` or manual dispatch | GitHub Release with binaries for all 6 targets |
-
-```bash
-# Create a release
-git tag v1.0.0
-git push origin v1.0.0
-# → Release page gets: Linux tar.gz, Windows zip, 4× Android zip
-```
 
 ---
 
@@ -726,16 +714,4 @@ chmod +x build.sh && ./build.sh
 
 ---
 
-#### GitHub Actions (автоматически)
 
-| Workflow | Триггер | Результат |
-|----------|---------|-----------|
-| **CI** | push в `main`, pull request | проверка сборки Linux + Windows + Android |
-| **Release** | push тега `v*` или ручной запуск | GitHub Release с бинарниками для всех 6 платформ |
-
-```bash
-# Создать релиз
-git tag v1.0.0
-git push origin v1.0.0
-# → На странице Releases появятся: Linux tar.gz, Windows zip, 4× Android zip
-```
