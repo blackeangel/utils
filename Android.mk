@@ -13,7 +13,7 @@ LOCAL_CFLAGS := \
 
 LOCAL_C_INCLUDES := \
     src/zlib  \
-    src/e2fsdroid/ext2fs
+    src/ext2
 
 LOCAL_SRC_FILES += \
     src/zlib/adler32.c \
@@ -47,7 +47,7 @@ LOCAL_CFLAGS := \
 
 LOCAL_C_INCLUDES := \
     src/zlib  \
-    src/e2fsdroid/ext2fs \
+    src/ext2 \
     src/sparse/sparse \
     src/sparse/android-base
 
@@ -253,7 +253,7 @@ LOCAL_C_INCLUDES := \
 	src/liblzma/api \
 	src/md1img \
 	src/brotli/include \
-    src/e2fsdroid/ext2fs
+    src/ext2
 
 LOCAL_CXXFLAGS := -fexceptions -std=c++2a -pipe -O2 -s -DLZMA_API_STATIC
 

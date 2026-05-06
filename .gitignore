@@ -366,3 +366,4 @@ MigrationBackup/
 FodyWeavers.xsd
 # Android local SDK/NDK paths
 local.properties
+local.properties

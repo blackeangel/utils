@@ -30,7 +30,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include "../src/zlib/zlib.h"
-#include "../src/e2fsdroid/ext2fs/ext2_fs.h" // Для работы с ext4
+#include "../src/ext2/ext2_fs.h" // Для работы с ext4
 #include "../src/sparse/sparse_format.h" // Для работы с Android sparse
 #include "../src/erofs/erofs_fs.h" //для работы с EROFS
 #include "bootimg.h" // для работы с VENDOR_BOOT и BOOT

@@ -208,8 +208,6 @@ add_library(png STATIC ${LIBPNG_SRC_FILES})
 # ── minizip ───────────────────────────────────────────────────────────────────
 set(LIBMINIZIP_SRC_FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/minizip/ioapi.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/minizip/miniunz.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/minizip/minizip.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/minizip/mztools.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/minizip/unzip.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/minizip/zip.c
