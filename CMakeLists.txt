@@ -151,6 +151,24 @@ else()
     target_include_directories(brotli PUBLIC ${brotli_SOURCE_DIR}/c/include)
     set(BROTLI_INCLUDE_DIR ${brotli_SOURCE_DIR}/c/include)
     set(BROTLI_TARGET brotli)
+
+    # ── Vendored libarchive (native, same as cross-compile) ───────────────
+    # libarchive's own CMakeLists.txt is incompatible with CMake 4.x,
+    # so we build from sources directly on all platforms.
+    file(GLOB NATIVE_LIBARCHIVE_SRCS "${PROJECT_SOURCE_DIR}/src/libarchive/*.c")
+    list(FILTER NATIVE_LIBARCHIVE_SRCS EXCLUDE REGEX
+        "(archive_read_disk_windows|archive_write_disk_windows|filter_fork_windows)\.c$")
+    add_library(archive STATIC ${NATIVE_LIBARCHIVE_SRCS})
+    target_compile_definitions(archive PUBLIC HAVE_CONFIG_H LZMA_API_STATIC)
+    target_compile_options(archive PRIVATE
+        -include ${PROJECT_SOURCE_DIR}/src/libarchive/config.h)
+    target_include_directories(archive PUBLIC
+        ${PROJECT_SOURCE_DIR}/src/libarchive
+        ${LZMA_INCLUDE_DIR}
+        ${PROJECT_SOURCE_DIR}/src/zlib
+    )
+    target_link_libraries(archive PUBLIC liblzma z)
+    set(LIBARCHIVE_TARGET archive)
 endif()
 
 # ── include_directories ───────────────────────────────────────────────────────
@@ -161,7 +179,7 @@ include_directories(
     ${PROJECT_SOURCE_DIR}/src/sparse
     ${PROJECT_SOURCE_DIR}/src/sparse/android-base
     ${PROJECT_SOURCE_DIR}/src/libpng
-    ${PROJECT_SOURCE_DIR}/src/minizip
+    ${PROJECT_SOURCE_DIR}/src/libarchive
     ${PROJECT_SOURCE_DIR}/src/md1img
 )
 
@@ -206,18 +224,8 @@ set(LIBPNG_SRC_FILES
 add_library(png STATIC ${LIBPNG_SRC_FILES})
 
 # ── minizip ───────────────────────────────────────────────────────────────────
-set(LIBMINIZIP_SRC_FILES
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/minizip/ioapi.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/minizip/mztools.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/minizip/unzip.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/minizip/zip.c
-)
-if(WIN32)
-    list(APPEND LIBMINIZIP_SRC_FILES
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/minizip/iowin32.c)
-endif()
-add_library(minizip STATIC ${LIBMINIZIP_SRC_FILES})
-target_link_libraries(png z minizip)
+# minizip replaced by libarchive on utils_libarchive branch
+target_link_libraries(png z)
 
 # ── utils executable ──────────────────────────────────────────────────────────
 file(GLOB SRCS
@@ -227,6 +235,8 @@ file(GLOB SRCS
     "${PROJECT_SOURCE_DIR}/src/md1img/*"
     "${PROJECT_SOURCE_DIR}/src/*"
 )
+# Exclude minizip sources (replaced by libarchive)
+list(FILTER SRCS EXCLUDE REGEX "src/minizip/")
 # sparse_fuzzer is a standalone tool - not part of utils
 list(FILTER SRCS EXCLUDE REGEX "sparse_fuzzer\.cpp$")
 # asprintf is already in POSIX libc and Android bionic - only compile on Windows
@@ -239,6 +249,7 @@ add_executable(utils ${SRCS})
 target_include_directories(utils PRIVATE
     ${LZMA_INCLUDE_DIR}
     ${BROTLI_INCLUDE_DIR}
+    ${PROJECT_SOURCE_DIR}/src/libarchive
 )
 
 target_link_libraries(utils
@@ -246,5 +257,6 @@ target_link_libraries(utils
     z
     liblzma
     ${BROTLI_TARGET}
+    ${LIBARCHIVE_TARGET}
     Threads::Threads
 )

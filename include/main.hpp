@@ -36,8 +36,6 @@
 #include "bootimg.h" // для работы с VENDOR_BOOT и BOOT
 //#include <lzma.h>       // Для распаковки .xz файлов
 #include "../src/libpng/png.h"
-#include "../src/minizip/zip.h"
-#include "../src/minizip/unzip.h"
 
 using namespace std::string_view_literals;
 

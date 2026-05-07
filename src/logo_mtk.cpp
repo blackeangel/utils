@@ -1,3 +1,5 @@
+#include <archive.h>
+#include <archive_entry.h>
 #include "../include/main.hpp"
 struct MTK_logo {
     struct {
@@ -339,290 +341,194 @@ std::vector<unsigned char> read_file_to_vector(const std::string &file_path) {
     }
  */
 
-void pack_to_zip(const std::vector<unsigned char> &data, const std::string &entry_name) {
+void pack_to_zip(const std::vector<unsigned char> &buf, const std::string &entry_name) {
     std::string zip_filename = "logo_" + get_current_time_str() + ".zip";
 
-    zipFile zf = zipOpen(zip_filename.c_str(), APPEND_STATUS_CREATE);
-    if (zf == nullptr) {
-        throw std::runtime_error("Could not open zip archive for writing");
-    }
+    struct archive* a = archive_write_new();
+    archive_write_set_format_zip(a);
+    if (archive_write_open_filename(a, zip_filename.c_str()) != ARCHIVE_OK)
+        throw std::runtime_error(std::string("Cannot create zip: ") + archive_error_string(a));
 
-    zip_fileinfo zi;
-    memset(&zi, 0, sizeof(zip_fileinfo));
+    struct archive_entry* entry = archive_entry_new();
+    archive_entry_set_pathname(entry, entry_name.c_str());
+    archive_entry_set_size(entry, static_cast<la_int64_t>(buf.size()));
+    archive_entry_set_filetype(entry, AE_IFREG);
+    archive_entry_set_perm(entry, 0644);
+    archive_write_header(a, entry);
+    archive_write_data(a, buf.data(), buf.size());
+    archive_entry_free(entry);
+    archive_write_close(a);
+    archive_write_free(a);
 
-    int err = zipOpenNewFileInZip(zf, entry_name.c_str(), &zi, nullptr, 0, nullptr, 0, nullptr, Z_DEFLATED, Z_BEST_COMPRESSION);
-    if (err != ZIP_OK) {
-        zipClose(zf, nullptr);
-        throw std::runtime_error("Could not open new file in zip archive");
-    }
-
-    err = zipWriteInFileInZip(zf, data.data(), data.size());
-    if (err != ZIP_OK) {
-        zipCloseFileInZip(zf);
-        zipClose(zf, nullptr);
-        throw std::runtime_error("Could not write data to zip archive");
-    }
-
-    zipCloseFileInZip(zf);
-    zipClose(zf, nullptr);
-
-    std::cout << "Данные успешно упакованы в " << zip_filename << std::endl;
+    std::cout << "Packed to " << zip_filename << std::endl;
 }
 
-// Функция для распаковки ZIP архива
 void extract_zip(const std::string &zip_path, const std::string &extract_dir) {
-    unzFile uf = unzOpen(zip_path.c_str());
-    if (uf == nullptr) {
-        throw std::runtime_error("Could not open zip archive for reading");
+    struct archive* a = archive_read_new();
+    archive_read_support_format_zip(a);
+    archive_read_support_filter_none(a);
+
+    if (archive_read_open_filename(a, zip_path.c_str(), 65536) != ARCHIVE_OK) {
+        archive_read_free(a);
+        throw std::runtime_error("Cannot open zip: " + zip_path);
     }
 
-    if (unzGoToFirstFile(uf) != UNZ_OK) {
-        unzClose(uf);
-        throw std::runtime_error("Could not read first file in zip archive");
+    struct archive_entry* entry;
+    while (archive_read_next_header(a, &entry) == ARCHIVE_OK) {
+        std::string outpath = extract_dir + "/" + archive_entry_pathname(entry);
+        la_int64_t size = archive_entry_size(entry);
+        std::vector<char> buf(static_cast<size_t>(size));
+        archive_read_data(a, buf.data(), buf.size());
+        std::ofstream f(outpath, std::ios::binary);
+        if (!f) { archive_read_free(a); throw std::runtime_error("Cannot create: " + outpath); }
+        f.write(buf.data(), static_cast<std::streamsize>(buf.size()));
     }
-
-    do {
-        char filename_inzip[256];
-        unz_file_info file_info;
-        if (unzGetCurrentFileInfo(uf, &file_info, filename_inzip, sizeof(filename_inzip), nullptr, 0, nullptr, 0) != UNZ_OK) {
-            unzClose(uf);
-            throw std::runtime_error("Could not get file info in zip archive");
-        }
-
-        if (unzOpenCurrentFile(uf) != UNZ_OK) {
-            unzClose(uf);
-            throw std::runtime_error("Could not open file in zip archive");
-        }
-
-        std::vector<char> buffer(file_info.uncompressed_size);
-        if (unzReadCurrentFile(uf, buffer.data(), buffer.size()) < 0) {
-            unzCloseCurrentFile(uf);
-            unzClose(uf);
-            throw std::runtime_error("Could not read file in zip archive");
-        }
-
-        std::string output_path = extract_dir + "/" + filename_inzip;
-        std::ofstream out_file(output_path, std::ios::binary);
-        if (!out_file.is_open()) {
-            unzCloseCurrentFile(uf);
-            unzClose(uf);
-            throw std::runtime_error("Could not create output file: " + output_path);
-        }
-        out_file.write(buffer.data(), buffer.size());
-        out_file.close();
-
-        unzCloseCurrentFile(uf);
-    } while (unzGoToNextFile(uf) == UNZ_OK);
-
-    unzClose(uf);
-    std::cout << "Files extracted to " << extract_dir << std::endl;
+    archive_read_close(a);
+    archive_read_free(a);
+    std::cout << "Extracted to " << extract_dir << std::endl;
 }
 
-// Функция для добавления файла в ZIP архив
 void add_file_in_zip(const std::string &zip_path, const std::string &file_path, const std::string &entry_name) {
-    // Открываем zip файл для создания нового архива
-    zipFile zf = zipOpen(zip_path.c_str(), APPEND_STATUS_CREATE);
-    if (zf == nullptr) {
-        throw std::runtime_error("Could not open zip archive for writing: " + zip_path);
-    }
-
-    zip_fileinfo zi;
-    memset(&zi, 0, sizeof(zip_fileinfo));
-
-    // Читаем содержимое файла в вектор
     std::vector<unsigned char> data = read_file_to_vector(file_path);
 
-    // Открываем новый файл в zip архиве
-    int err = zipOpenNewFileInZip(zf, entry_name.c_str(), &zi, nullptr, 0, nullptr, 0, nullptr, Z_DEFLATED, Z_BEST_COMPRESSION);
-    if (err != ZIP_OK) {
-        zipClose(zf, nullptr);
-        throw std::runtime_error("Could not open new file in zip archive: " + entry_name);
-    }
+    struct archive* a = archive_write_new();
+    archive_write_set_format_zip(a);
+    if (archive_write_open_filename(a, zip_path.c_str()) != ARCHIVE_OK)
+        throw std::runtime_error(std::string("Cannot create zip: ") + archive_error_string(a));
 
-    // Записываем данные файла в zip архив
-    err = zipWriteInFileInZip(zf, data.data(), data.size());
-    if (err != ZIP_OK) {
-        zipCloseFileInZip(zf);
-        zipClose(zf, nullptr);
-        throw std::runtime_error("Could not write data to zip archive: " + entry_name);
-    }
+    struct archive_entry* entry = archive_entry_new();
+    archive_entry_set_pathname(entry, entry_name.c_str());
+    archive_entry_set_size(entry, static_cast<la_int64_t>(data.size()));
+    archive_entry_set_filetype(entry, AE_IFREG);
+    archive_entry_set_perm(entry, 0644);
+    archive_write_header(a, entry);
+    archive_write_data(a, data.data(), data.size());
+    archive_entry_free(entry);
+    archive_write_close(a);
+    archive_write_free(a);
 
-    // Закрываем текущий файл в zip архиве
-    zipCloseFileInZip(zf);
-
-    // Закрываем zip архив
-    zipClose(zf, nullptr);
-
-    std::cout << "File " << file_path << " added to zip archive as " << entry_name << std::endl;
+    std::cout << "Added " << file_path << " to " << zip_path << std::endl;
 }
 
-// Функция для вывода списка файлов в ZIP архиве
 void list_files_in_zip(const std::string &zip_path) {
-    unzFile uf = unzOpen(zip_path.c_str());
-    if (uf == nullptr) {
-        throw std::runtime_error("Could not open zip archive for reading");
+    struct archive* a = archive_read_new();
+    archive_read_support_format_zip(a);
+    archive_read_support_filter_none(a);
+
+    if (archive_read_open_filename(a, zip_path.c_str(), 65536) != ARCHIVE_OK) {
+        archive_read_free(a);
+        throw std::runtime_error("Cannot open zip: " + zip_path);
     }
 
-    if (unzGoToFirstFile(uf) != UNZ_OK) {
-        unzClose(uf);
-        throw std::runtime_error("Could not read first file in zip archive");
+    struct archive_entry* entry;
+    while (archive_read_next_header(a, &entry) == ARCHIVE_OK) {
+        std::cout << "File: " << archive_entry_pathname(entry)
+                  << " | Size: " << archive_entry_size(entry) << " bytes" << std::endl;
+        archive_read_data_skip(a);
     }
-
-    do {
-        char filename_inzip[256];
-        unz_file_info file_info;
-        if (unzGetCurrentFileInfo(uf, &file_info, filename_inzip, sizeof(filename_inzip), nullptr, 0, nullptr, 0) != UNZ_OK) {
-            unzClose(uf);
-            throw std::runtime_error("Could not get file info in zip archive");
-        }
-
-        std::cout << "File: " << filename_inzip << " | Size: " << file_info.uncompressed_size << " bytes" << std::endl;
-
-    } while (unzGoToNextFile(uf) == UNZ_OK);
-
-    unzClose(uf);
+    archive_read_close(a);
+    archive_read_free(a);
 }
 
-// Функция для создания папки в ZIP архиве
+// ── libarchive replacements for: add_folder_to_zip, extract_files_from_zip,
+//    add_file_to_zip, add_files_to_zip, write_string_to_zip ──────────────────
+
 void add_folder_to_zip(const std::string &zip_path, const std::string &folder_name) {
-    zipFile zf = zipOpen(zip_path.c_str(), APPEND_STATUS_ADDINZIP);
-    if (zf == nullptr) {
-        throw std::runtime_error("Could not open zip archive for writing");
-    }
+    std::string name = folder_name;
+    if (name.back() != '/') name += '/';
 
-    zip_fileinfo zi;
-    memset(&zi, 0, sizeof(zip_fileinfo));
+    struct archive* a = archive_write_new();
+    archive_write_set_format_zip(a);
+    archive_write_open_filename(a, zip_path.c_str());
 
-    std::string folder_entry_name = folder_name;
-    if (folder_entry_name.back() != '/') {
-        folder_entry_name += '/';
-    }
-
-    int err = zipOpenNewFileInZip(zf, folder_entry_name.c_str(), &zi, nullptr, 0, nullptr, 0, nullptr, 0, 0);
-    if (err != ZIP_OK) {
-        zipClose(zf, nullptr);
-        throw std::runtime_error("Could not create folder in zip archive");
-    }
-
-    zipCloseFileInZip(zf);
-    zipClose(zf, nullptr);
-
+    struct archive_entry* entry = archive_entry_new();
+    archive_entry_set_pathname(entry, name.c_str());
+    archive_entry_set_filetype(entry, AE_IFDIR);
+    archive_entry_set_perm(entry, 0755);
+    archive_entry_set_size(entry, 0);
+    archive_write_header(a, entry);
+    archive_entry_free(entry);
+    archive_write_close(a);
+    archive_write_free(a);
     std::cout << "Folder " << folder_name << " added to " << zip_path << std::endl;
 }
 
-// Функция для распаковки файлов из ZIP архива
-void extract_files_from_zip(const std::string &zip_path, const std::string &extract_dir, const std::vector<std::string> &files_to_extract) {
-    unzFile uf = unzOpen(zip_path.c_str());
-    if (uf == nullptr) {
-        throw std::runtime_error("Could not open zip archive for reading");
+void extract_files_from_zip(const std::string &zip_path, const std::string &extract_dir,
+                             const std::vector<std::string> &files_to_extract) {
+    struct archive* a = archive_read_new();
+    archive_read_support_format_zip(a);
+    archive_read_support_filter_none(a);
+    if (archive_read_open_filename(a, zip_path.c_str(), 65536) != ARCHIVE_OK) {
+        archive_read_free(a);
+        throw std::runtime_error("Cannot open zip: " + zip_path);
     }
-
-    for (const auto &file_name: files_to_extract) {
-        if (unzLocateFile(uf, file_name.c_str(), 0) != UNZ_OK) {
-            std::cerr << "File " << file_name << " not found in zip archive" << std::endl;
-            continue;
-        }
-
-        if (unzOpenCurrentFile(uf) != UNZ_OK) {
-            throw std::runtime_error("Could not open file in zip archive");
-        }
-
-        char filename_inzip[256];
-        unz_file_info file_info;
-        if (unzGetCurrentFileInfo(uf, &file_info, filename_inzip, sizeof(filename_inzip), nullptr, 0, nullptr, 0) != UNZ_OK) {
-            unzCloseCurrentFile(uf);
-            throw std::runtime_error("Could not get file info in zip archive");
-        }
-
-        std::vector<char> buffer(file_info.uncompressed_size);
-        if (unzReadCurrentFile(uf, buffer.data(), buffer.size()) < 0) {
-            unzCloseCurrentFile(uf);
-            throw std::runtime_error("Could not read file in zip archive");
-        }
-
-        std::string output_path = extract_dir + "/" + filename_inzip;
-        std::filesystem::create_directories(std::filesystem::path(output_path).parent_path());
-        std::ofstream out_file(output_path, std::ios::binary);
-        if (!out_file.is_open()) {
-            unzCloseCurrentFile(uf);
-            throw std::runtime_error("Could not create output file: " + output_path);
-        }
-        out_file.write(buffer.data(), buffer.size());
-        out_file.close();
-
-        unzCloseCurrentFile(uf);
-        std::cout << "File " << filename_inzip << " extracted to " << output_path << std::endl;
+    struct archive_entry* entry;
+    while (archive_read_next_header(a, &entry) == ARCHIVE_OK) {
+        std::string name = archive_entry_pathname(entry);
+        bool wanted = files_to_extract.empty() ||
+            std::find(files_to_extract.begin(), files_to_extract.end(), name)
+                != files_to_extract.end();
+        if (!wanted) { archive_read_data_skip(a); continue; }
+        std::string outpath = extract_dir + "/" + name;
+        std::filesystem::create_directories(std::filesystem::path(outpath).parent_path());
+        la_int64_t sz = archive_entry_size(entry);
+        std::vector<char> buf(static_cast<size_t>(sz));
+        archive_read_data(a, buf.data(), buf.size());
+        std::ofstream f(outpath, std::ios::binary);
+        if (!f) { archive_read_free(a); throw std::runtime_error("Cannot create: " + outpath); }
+        f.write(buf.data(), static_cast<std::streamsize>(buf.size()));
+        std::cout << "Extracted " << name << " to " << outpath << std::endl;
     }
-
-    unzClose(uf);
+    archive_read_close(a);
+    archive_read_free(a);
 }
 
-// Функция для добавления файла в ZIP архив
-void add_file_to_zip(zipFile zf, const std::string &file_path, const std::string &entry_name) {
-    std::vector<unsigned char> data = read_file_to_vector(file_path);
-
-    zip_fileinfo zi;
-    memset(&zi, 0, sizeof(zip_fileinfo));
-
-    int err = zipOpenNewFileInZip(zf, entry_name.c_str(), &zi, nullptr, 0, nullptr, 0, nullptr, Z_DEFLATED, Z_BEST_COMPRESSION);
-    if (err != ZIP_OK) {
-        throw std::runtime_error("Could not open new file in zip archive");
-    }
-
-    err = zipWriteInFileInZip(zf, data.data(), data.size());
-    if (err != ZIP_OK) {
-        zipCloseFileInZip(zf);
-        throw std::runtime_error("Could not write data to zip archive");
-    }
-
-    zipCloseFileInZip(zf);
-    std::cout << "File " << file_path << " added to zip archive as " << entry_name << std::endl;
+// Helper used by add_files_to_zip
+static void la_add_file_to_archive(struct archive* a,
+                                   const std::string &file_path,
+                                   const std::string &entry_name) {
+    std::vector<unsigned char> buf = read_file_to_vector(file_path);
+    struct archive_entry* entry = archive_entry_new();
+    archive_entry_set_pathname(entry, entry_name.c_str());
+    archive_entry_set_size(entry, static_cast<la_int64_t>(buf.size()));
+    archive_entry_set_filetype(entry, AE_IFREG);
+    archive_entry_set_perm(entry, 0644);
+    archive_write_header(a, entry);
+    archive_write_data(a, buf.data(), buf.size());
+    archive_entry_free(entry);
+    std::cout << "Added " << file_path << " as " << entry_name << std::endl;
 }
 
-// Функция для добавления нескольких файлов или папок в ZIP архив
-void add_files_to_zip(const std::string &zip_path, const std::vector<std::string> &files, std::string &base_path) {
-    zipFile zf = zipOpen(zip_path.c_str(), APPEND_STATUS_ADDINZIP);
-    if (zf == nullptr) {
-        throw std::runtime_error("Could not open zip archive for writing");
+void add_files_to_zip(const std::string &zip_path, const std::vector<std::string> &files,
+                      std::string &base_path) {
+    struct archive* a = archive_write_new();
+    archive_write_set_format_zip(a);
+    archive_write_open_filename(a, zip_path.c_str());
+    for (const auto &fp : files) {
+        std::string name = base_path.empty() ? fp : base_path + "/" + fp;
+        la_add_file_to_archive(a, fp, name);
     }
-
-    for (const auto &file_path: files) {
-        std::string entry_name = base_path.empty() ? file_path : base_path + "/" + file_path;
-        add_file_to_zip(zf, file_path, entry_name);
-    }
-
-    zipClose(zf, nullptr);
+    archive_write_close(a);
+    archive_write_free(a);
 }
 
-// Функция для записи строки в файл внутри ZIP архива
-void write_string_to_zip(const std::string& zip_filename, const std::string& file_inside_zip, const std::string& content) {
-    zipFile zf = zipOpen(zip_filename.c_str(), APPEND_STATUS_ADDINZIP);
-    if (zf == nullptr) {
-        throw std::runtime_error("Could not open zip archive for writing: " + zip_filename);
-    }
-
-    zip_fileinfo zi;
-    memset(&zi, 0, sizeof(zip_fileinfo));
-
-    int err = zipOpenNewFileInZip(zf, file_inside_zip.c_str(), &zi, nullptr, 0, nullptr, 0, nullptr, Z_DEFLATED, Z_BEST_COMPRESSION);
-    if (err != ZIP_OK) {
-        zipClose(zf, nullptr);
-        throw std::runtime_error("Could not open file in zip archive: " + file_inside_zip);
-    }
-
-    err = zipWriteInFileInZip(zf, content.c_str(), content.size());
-    if (err != ZIP_OK) {
-        zipClose(zf, nullptr);
-        throw std::runtime_error("Could not write to file in zip archive: " + file_inside_zip);
-    }
-
-    err = zipCloseFileInZip(zf);
-    if (err != ZIP_OK) {
-        zipClose(zf, nullptr);
-        throw std::runtime_error("Could not close file in zip archive: " + file_inside_zip);
-    }
-
-    zipClose(zf, nullptr);
+void write_string_to_zip(const std::string &zip_filename,
+                         const std::string &file_inside_zip,
+                         const std::string &content) {
+    struct archive* a = archive_write_new();
+    archive_write_set_format_zip(a);
+    if (archive_write_open_filename(a, zip_filename.c_str()) != ARCHIVE_OK)
+        throw std::runtime_error(std::string("Cannot create zip: ") + archive_error_string(a));
+    struct archive_entry* entry = archive_entry_new();
+    archive_entry_set_pathname(entry, file_inside_zip.c_str());
+    archive_entry_set_size(entry, static_cast<la_int64_t>(content.size()));
+    archive_entry_set_filetype(entry, AE_IFREG);
+    archive_entry_set_perm(entry, 0644);
+    archive_write_header(a, entry);
+    archive_write_data(a, content.c_str(), content.size());
+    archive_entry_free(entry);
+    archive_write_close(a);
+    archive_write_free(a);
 }
 
 // Функция для угадывания разрешения изображения на основе размера файла и глубины цвета
