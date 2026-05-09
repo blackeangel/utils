@@ -367,3 +367,12 @@ FodyWeavers.xsd
 # Android local SDK/NDK paths
 local.properties
 local.properties
+
+# Build directories
+build_native_test/
+build/
+build-*/
+out/
+
+# e2fsdroid - removed from project, keep locally only
+src/e2fsdroid/
