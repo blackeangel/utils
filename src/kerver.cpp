@@ -1,5 +1,3 @@
-#include <archive.h>
-#include <archive_entry.h>
 #include "../include/main.hpp"
 
 // Помощь по параметрам командной строки
@@ -157,39 +155,35 @@ std::vector<uint8_t> readFromOffset(const std::vector<uint8_t> &data, std::strea
     return tmp;
 }
 
-// Распаковка gzip в память — через libarchive (заменяет прямой zlib inflate)
+// Распаковка gzip в память — zlib inflate (raw gzip, 16+MAX_WBITS)
 bool decompressGzip(const std::vector<uint8_t> &compressedData, std::vector<uint8_t> &decompressedData) {
-    struct archive* a = archive_read_new();
-    archive_read_support_filter_gzip(a);
-    archive_read_support_format_raw(a);
+    z_stream strm{};
+    strm.next_in   = const_cast<Bytef*>(compressedData.data());
+    strm.avail_in  = static_cast<uInt>(compressedData.size());
 
-    if (archive_read_open_memory(a,
-            const_cast<uint8_t*>(compressedData.data()),
-            compressedData.size()) != ARCHIVE_OK) {
-        std::cerr << "Error: libarchive cannot open gzip stream: "
-                  << archive_error_string(a) << "\n";
-        archive_read_free(a);
-        return false;
-    }
-
-    struct archive_entry* entry;
-    if (archive_read_next_header(a, &entry) != ARCHIVE_OK) {
-        std::cerr << "Error: libarchive no entry in gzip stream\n";
-        archive_read_free(a);
+    if (inflateInit2(&strm, 16 + MAX_WBITS) != Z_OK) {
+        std::cerr << "Error: inflateInit2 failed\n";
         return false;
     }
 
     decompressedData.clear();
     uint8_t buf[65536];
-    la_ssize_t n;
-    while ((n = archive_read_data(a, buf, sizeof(buf))) > 0)
-        decompressedData.insert(decompressedData.end(), buf, buf + n);
+    int ret;
+    do {
+        strm.next_out  = buf;
+        strm.avail_out = sizeof(buf);
+        ret = inflate(&strm, Z_SYNC_FLUSH);
+        if (ret == Z_STREAM_ERROR || ret == Z_DATA_ERROR || ret == Z_MEM_ERROR) {
+            std::cerr << "Error: inflate failed (" << ret << ")\n";
+            inflateEnd(&strm);
+            return false;
+        }
+        size_t produced = sizeof(buf) - strm.avail_out;
+        decompressedData.insert(decompressedData.end(), buf, buf + produced);
+    } while (ret != Z_STREAM_END);
 
-    bool ok = (n == 0);
-    if (!ok) std::cerr << "Error: " << archive_error_string(a) << "\n";
-    archive_read_close(a);
-    archive_read_free(a);
-    return ok;
+    inflateEnd(&strm);
+    return true;
 }
 
 // Поиск версии Linux
