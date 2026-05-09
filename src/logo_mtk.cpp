@@ -1,5 +1,6 @@
 #include <archive.h>
 #include <archive_entry.h>
+#include <zip.h>
 #include "../include/main.hpp"
 struct MTK_logo {
     struct {
@@ -343,91 +344,65 @@ std::vector<unsigned char> read_file_to_vector(const std::string &file_path) {
 
 void pack_to_zip(const std::vector<unsigned char> &buf, const std::string &entry_name) {
     std::string zip_filename = "logo_" + get_current_time_str() + ".zip";
-
-    struct archive* a = archive_write_new();
-    archive_write_set_format_zip(a);
-    if (archive_write_open_filename(a, zip_filename.c_str()) != ARCHIVE_OK)
-        throw std::runtime_error(std::string("Cannot create zip: ") + archive_error_string(a));
-
-    struct archive_entry* entry = archive_entry_new();
-    archive_entry_set_pathname(entry, entry_name.c_str());
-    archive_entry_set_size(entry, static_cast<la_int64_t>(buf.size()));
-    archive_entry_set_filetype(entry, AE_IFREG);
-    archive_entry_set_perm(entry, 0644);
-    archive_write_header(a, entry);
-    archive_write_data(a, buf.data(), buf.size());
-    archive_entry_free(entry);
-    archive_write_close(a);
-    archive_write_free(a);
-
+    int err = 0;
+    zip_t* za = zip_open(zip_filename.c_str(), ZIP_CREATE | ZIP_TRUNCATE, &err);
+    if (!za) throw std::runtime_error("Cannot create zip: " + zip_filename);
+    zip_source_t* src = zip_source_buffer(za, buf.data(), buf.size(), 0);
+    if (!src || zip_file_add(za, entry_name.c_str(), src, ZIP_FL_OVERWRITE) < 0) {
+        zip_discard(za);
+        throw std::runtime_error("Cannot add entry to zip");
+    }
+    if (zip_close(za) < 0) throw std::runtime_error("Cannot finalize zip");
     std::cout << "Packed to " << zip_filename << std::endl;
 }
 
 void extract_zip(const std::string &zip_path, const std::string &extract_dir) {
-    struct archive* a = archive_read_new();
-    archive_read_support_format_zip(a);
-    archive_read_support_filter_none(a);
-
-    if (archive_read_open_filename(a, zip_path.c_str(), 65536) != ARCHIVE_OK) {
-        archive_read_free(a);
-        throw std::runtime_error("Cannot open zip: " + zip_path);
-    }
-
-    struct archive_entry* entry;
-    while (archive_read_next_header(a, &entry) == ARCHIVE_OK) {
-        std::string outpath = extract_dir + "/" + archive_entry_pathname(entry);
-        la_int64_t size = archive_entry_size(entry);
-        std::vector<char> buf(static_cast<size_t>(size));
-        archive_read_data(a, buf.data(), buf.size());
+    int err = 0;
+    zip_t* za = zip_open(zip_path.c_str(), ZIP_RDONLY, &err);
+    if (!za) throw std::runtime_error("Cannot open zip: " + zip_path);
+    zip_int64_t n = zip_get_num_entries(za, 0);
+    for (zip_int64_t i = 0; i < n; i++) {
+        const char* name = zip_get_name(za, i, 0);
+        if (!name) continue;
+        std::string outpath = extract_dir + "/" + name;
+        zip_stat_t st; zip_stat_index(za, i, 0, &st);
+        zip_file_t* zf = zip_fopen_index(za, i, 0);
+        if (!zf) continue;
+        std::vector<char> buf(st.size);
+        zip_fread(zf, buf.data(), st.size);
+        zip_fclose(zf);
+        std::filesystem::create_directories(std::filesystem::path(outpath).parent_path());
         std::ofstream f(outpath, std::ios::binary);
-        if (!f) { archive_read_free(a); throw std::runtime_error("Cannot create: " + outpath); }
-        f.write(buf.data(), static_cast<std::streamsize>(buf.size()));
+        if (f) f.write(buf.data(), static_cast<std::streamsize>(buf.size()));
     }
-    archive_read_close(a);
-    archive_read_free(a);
+    zip_close(za);
     std::cout << "Extracted to " << extract_dir << std::endl;
 }
 
 void add_file_in_zip(const std::string &zip_path, const std::string &file_path, const std::string &entry_name) {
-    std::vector<unsigned char> data = read_file_to_vector(file_path);
-
-    struct archive* a = archive_write_new();
-    archive_write_set_format_zip(a);
-    if (archive_write_open_filename(a, zip_path.c_str()) != ARCHIVE_OK)
-        throw std::runtime_error(std::string("Cannot create zip: ") + archive_error_string(a));
-
-    struct archive_entry* entry = archive_entry_new();
-    archive_entry_set_pathname(entry, entry_name.c_str());
-    archive_entry_set_size(entry, static_cast<la_int64_t>(data.size()));
-    archive_entry_set_filetype(entry, AE_IFREG);
-    archive_entry_set_perm(entry, 0644);
-    archive_write_header(a, entry);
-    archive_write_data(a, data.data(), data.size());
-    archive_entry_free(entry);
-    archive_write_close(a);
-    archive_write_free(a);
-
+    std::vector<unsigned char> fdata = read_file_to_vector(file_path);
+    int err = 0;
+    zip_t* za = zip_open(zip_path.c_str(), ZIP_CREATE, &err);
+    if (!za) throw std::runtime_error("Cannot open/create zip: " + zip_path);
+    zip_source_t* src = zip_source_buffer(za, fdata.data(), fdata.size(), 0);
+    if (!src || zip_file_add(za, entry_name.c_str(), src, ZIP_FL_OVERWRITE) < 0) {
+        zip_discard(za);
+        throw std::runtime_error("Cannot add file to zip");
+    }
+    zip_close(za);
     std::cout << "Added " << file_path << " to " << zip_path << std::endl;
 }
 
 void list_files_in_zip(const std::string &zip_path) {
-    struct archive* a = archive_read_new();
-    archive_read_support_format_zip(a);
-    archive_read_support_filter_none(a);
-
-    if (archive_read_open_filename(a, zip_path.c_str(), 65536) != ARCHIVE_OK) {
-        archive_read_free(a);
-        throw std::runtime_error("Cannot open zip: " + zip_path);
+    int err = 0;
+    zip_t* za = zip_open(zip_path.c_str(), ZIP_RDONLY, &err);
+    if (!za) throw std::runtime_error("Cannot open zip: " + zip_path);
+    zip_int64_t n = zip_get_num_entries(za, 0);
+    for (zip_int64_t i = 0; i < n; i++) {
+        zip_stat_t st; zip_stat_index(za, i, 0, &st);
+        std::cout << "File: " << st.name << " | Size: " << st.size << " bytes" << std::endl;
     }
-
-    struct archive_entry* entry;
-    while (archive_read_next_header(a, &entry) == ARCHIVE_OK) {
-        std::cout << "File: " << archive_entry_pathname(entry)
-                  << " | Size: " << archive_entry_size(entry) << " bytes" << std::endl;
-        archive_read_data_skip(a);
-    }
-    archive_read_close(a);
-    archive_read_free(a);
+    zip_close(za);
 }
 
 // ── libarchive replacements for: add_folder_to_zip, extract_files_from_zip,
@@ -436,99 +411,74 @@ void list_files_in_zip(const std::string &zip_path) {
 void add_folder_to_zip(const std::string &zip_path, const std::string &folder_name) {
     std::string name = folder_name;
     if (name.back() != '/') name += '/';
-
-    struct archive* a = archive_write_new();
-    archive_write_set_format_zip(a);
-    archive_write_open_filename(a, zip_path.c_str());
-
-    struct archive_entry* entry = archive_entry_new();
-    archive_entry_set_pathname(entry, name.c_str());
-    archive_entry_set_filetype(entry, AE_IFDIR);
-    archive_entry_set_perm(entry, 0755);
-    archive_entry_set_size(entry, 0);
-    archive_write_header(a, entry);
-    archive_entry_free(entry);
-    archive_write_close(a);
-    archive_write_free(a);
+    int err = 0;
+    zip_t* za = zip_open(zip_path.c_str(), ZIP_CREATE, &err);
+    if (!za) throw std::runtime_error("Cannot open/create zip: " + zip_path);
+    if (zip_dir_add(za, name.c_str(), ZIP_FL_ENC_UTF_8) < 0) {
+        zip_discard(za); throw std::runtime_error("Cannot add folder to zip");
+    }
+    zip_close(za);
     std::cout << "Folder " << folder_name << " added to " << zip_path << std::endl;
 }
 
 void extract_files_from_zip(const std::string &zip_path, const std::string &extract_dir,
                              const std::vector<std::string> &files_to_extract) {
-    struct archive* a = archive_read_new();
-    archive_read_support_format_zip(a);
-    archive_read_support_filter_none(a);
-    if (archive_read_open_filename(a, zip_path.c_str(), 65536) != ARCHIVE_OK) {
-        archive_read_free(a);
-        throw std::runtime_error("Cannot open zip: " + zip_path);
-    }
-    struct archive_entry* entry;
-    while (archive_read_next_header(a, &entry) == ARCHIVE_OK) {
-        std::string name = archive_entry_pathname(entry);
+    int err = 0;
+    zip_t* za = zip_open(zip_path.c_str(), ZIP_RDONLY, &err);
+    if (!za) throw std::runtime_error("Cannot open zip: " + zip_path);
+    zip_int64_t n = zip_get_num_entries(za, 0);
+    for (zip_int64_t i = 0; i < n; i++) {
+        const char* name = zip_get_name(za, i, 0);
+        if (!name) continue;
+        std::string sname = name;
         bool wanted = files_to_extract.empty() ||
-            std::find(files_to_extract.begin(), files_to_extract.end(), name)
+            std::find(files_to_extract.begin(), files_to_extract.end(), sname)
                 != files_to_extract.end();
-        if (!wanted) { archive_read_data_skip(a); continue; }
-        std::string outpath = extract_dir + "/" + name;
+        if (!wanted) continue;
+        zip_stat_t st; zip_stat_index(za, i, 0, &st);
+        zip_file_t* zf = zip_fopen_index(za, i, 0);
+        if (!zf) continue;
+        std::vector<char> buf(st.size);
+        zip_fread(zf, buf.data(), st.size);
+        zip_fclose(zf);
+        std::string outpath = extract_dir + "/" + sname;
         std::filesystem::create_directories(std::filesystem::path(outpath).parent_path());
-        la_int64_t sz = archive_entry_size(entry);
-        std::vector<char> buf(static_cast<size_t>(sz));
-        archive_read_data(a, buf.data(), buf.size());
         std::ofstream f(outpath, std::ios::binary);
-        if (!f) { archive_read_free(a); throw std::runtime_error("Cannot create: " + outpath); }
+        if (!f) { zip_close(za); throw std::runtime_error("Cannot create: " + outpath); }
         f.write(buf.data(), static_cast<std::streamsize>(buf.size()));
-        std::cout << "Extracted " << name << " to " << outpath << std::endl;
+        std::cout << "Extracted " << sname << " to " << outpath << std::endl;
     }
-    archive_read_close(a);
-    archive_read_free(a);
-}
-
-// Helper used by add_files_to_zip
-static void la_add_file_to_archive(struct archive* a,
-                                   const std::string &file_path,
-                                   const std::string &entry_name) {
-    std::vector<unsigned char> buf = read_file_to_vector(file_path);
-    struct archive_entry* entry = archive_entry_new();
-    archive_entry_set_pathname(entry, entry_name.c_str());
-    archive_entry_set_size(entry, static_cast<la_int64_t>(buf.size()));
-    archive_entry_set_filetype(entry, AE_IFREG);
-    archive_entry_set_perm(entry, 0644);
-    archive_write_header(a, entry);
-    archive_write_data(a, buf.data(), buf.size());
-    archive_entry_free(entry);
-    std::cout << "Added " << file_path << " as " << entry_name << std::endl;
+    zip_close(za);
 }
 
 void add_files_to_zip(const std::string &zip_path, const std::vector<std::string> &files,
                       std::string &base_path) {
-    struct archive* a = archive_write_new();
-    archive_write_set_format_zip(a);
-    archive_write_open_filename(a, zip_path.c_str());
+    int err = 0;
+    zip_t* za = zip_open(zip_path.c_str(), ZIP_CREATE | ZIP_TRUNCATE, &err);
+    if (!za) throw std::runtime_error("Cannot create zip: " + zip_path);
     for (const auto &fp : files) {
         std::string name = base_path.empty() ? fp : base_path + "/" + fp;
-        la_add_file_to_archive(a, fp, name);
+        std::vector<unsigned char> buf = read_file_to_vector(fp);
+        zip_source_t* src = zip_source_buffer(za, buf.data(), buf.size(), 0);
+        if (!src || zip_file_add(za, name.c_str(), src, ZIP_FL_OVERWRITE) < 0) {
+            zip_discard(za); throw std::runtime_error("Cannot add " + fp + " to zip");
+        }
+        std::cout << "Added " << fp << " as " << name << std::endl;
     }
-    archive_write_close(a);
-    archive_write_free(a);
+    zip_close(za);
 }
 
 void write_string_to_zip(const std::string &zip_filename,
                          const std::string &file_inside_zip,
                          const std::string &content) {
-    struct archive* a = archive_write_new();
-    archive_write_set_format_zip(a);
-    if (archive_write_open_filename(a, zip_filename.c_str()) != ARCHIVE_OK)
-        throw std::runtime_error(std::string("Cannot create zip: ") + archive_error_string(a));
-    struct archive_entry* entry = archive_entry_new();
-    archive_entry_set_pathname(entry, file_inside_zip.c_str());
-    archive_entry_set_size(entry, static_cast<la_int64_t>(content.size()));
-    archive_entry_set_filetype(entry, AE_IFREG);
-    archive_entry_set_perm(entry, 0644);
-    archive_write_header(a, entry);
-    archive_write_data(a, content.c_str(), content.size());
-    archive_entry_free(entry);
-    archive_write_close(a);
-    archive_write_free(a);
+    int err = 0;
+    zip_t* za = zip_open(zip_filename.c_str(), ZIP_CREATE | ZIP_TRUNCATE, &err);
+    if (!za) throw std::runtime_error("Cannot create zip: " + zip_filename);
+    zip_source_t* src = zip_source_buffer(za, content.c_str(), content.size(), 0);
+    if (!src || zip_file_add(za, file_inside_zip.c_str(), src, ZIP_FL_OVERWRITE) < 0) {
+        zip_discard(za); throw std::runtime_error("Cannot add string to zip");
+    }
+    zip_close(za);
 }
 
 // Функция для угадывания разрешения изображения на основе размера файла и глубины цвета

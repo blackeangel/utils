@@ -1,3 +1,5 @@
+#include <archive.h>
+#include <archive_entry.h>
 #include "../include/main.hpp"
 
 // Помощь по параметрам командной строки
@@ -155,39 +157,39 @@ std::vector<uint8_t> readFromOffset(const std::vector<uint8_t> &data, std::strea
     return tmp;
 }
 
-// Распаковка gzip в память
+// Распаковка gzip в память — через libarchive (заменяет прямой zlib inflate)
 bool decompressGzip(const std::vector<uint8_t> &compressedData, std::vector<uint8_t> &decompressedData) {
-    z_stream strm = {};
-    strm.next_in = const_cast<Bytef *>(compressedData.data());
-    strm.avail_in = compressedData.size();
+    struct archive* a = archive_read_new();
+    archive_read_support_filter_gzip(a);
+    archive_read_support_format_raw(a);
 
-    if (inflateInit2(&strm, 16 + MAX_WBITS) != Z_OK) {
-        std::cerr << "Error: Failed to initialize zlib for decompression\n";
+    if (archive_read_open_memory(a,
+            const_cast<uint8_t*>(compressedData.data()),
+            compressedData.size()) != ARCHIVE_OK) {
+        std::cerr << "Error: libarchive cannot open gzip stream: "
+                  << archive_error_string(a) << "\n";
+        archive_read_free(a);
+        return false;
+    }
+
+    struct archive_entry* entry;
+    if (archive_read_next_header(a, &entry) != ARCHIVE_OK) {
+        std::cerr << "Error: libarchive no entry in gzip stream\n";
+        archive_read_free(a);
         return false;
     }
 
     decompressedData.clear();
-    decompressedData.resize(compressedData.size() * 2);
+    uint8_t buf[65536];
+    la_ssize_t n;
+    while ((n = archive_read_data(a, buf, sizeof(buf))) > 0)
+        decompressedData.insert(decompressedData.end(), buf, buf + n);
 
-    int ret;
-    do {
-        strm.next_out = decompressedData.data() + strm.total_out;
-        strm.avail_out = decompressedData.size() - strm.total_out;
-
-        ret = inflate(&strm, Z_SYNC_FLUSH);
-        if (ret == Z_OK || ret == Z_STREAM_END) {
-            if (strm.avail_out == 0) {
-                decompressedData.resize(decompressedData.size() * 2);
-            }
-        } else {
-            std::cerr << "Error: Decompression failed with code " << ret << "\n";
-            inflateEnd(&strm);
-            return false;
-        }
-    } while (ret != Z_STREAM_END);
-    decompressedData.resize(strm.total_out);
-    inflateEnd(&strm);
-    return true;
+    bool ok = (n == 0);
+    if (!ok) std::cerr << "Error: " << archive_error_string(a) << "\n";
+    archive_read_close(a);
+    archive_read_free(a);
+    return ok;
 }
 
 // Поиск версии Linux

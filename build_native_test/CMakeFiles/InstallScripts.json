@@ -1,0 +1,7 @@
+{
+	"InstallScripts" : 
+	[
+		"/home/claude/utils/build_native_test/cmake_install.cmake"
+	],
+	"Parallel" : false
+}

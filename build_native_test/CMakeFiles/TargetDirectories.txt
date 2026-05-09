@@ -1,0 +1,13 @@
+/home/claude/utils/build_native_test/CMakeFiles/z.dir
+/home/claude/utils/build_native_test/CMakeFiles/png.dir
+/home/claude/utils/build_native_test/CMakeFiles/liblzma.dir
+/home/claude/utils/build_native_test/CMakeFiles/brotli.dir
+/home/claude/utils/build_native_test/CMakeFiles/bz2.dir
+/home/claude/utils/build_native_test/CMakeFiles/lz4.dir
+/home/claude/utils/build_native_test/CMakeFiles/lzo2.dir
+/home/claude/utils/build_native_test/CMakeFiles/zstd.dir
+/home/claude/utils/build_native_test/CMakeFiles/libzip.dir
+/home/claude/utils/build_native_test/CMakeFiles/archive.dir
+/home/claude/utils/build_native_test/CMakeFiles/utils.dir
+/home/claude/utils/build_native_test/CMakeFiles/edit_cache.dir
+/home/claude/utils/build_native_test/CMakeFiles/rebuild_cache.dir

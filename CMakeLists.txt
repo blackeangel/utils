@@ -9,53 +9,43 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
 endif()
 
+# ── Compiler flags ─────────────────────────────────────────────────────────────
 if(MSVC)
     set(CMAKE_CXX_FLAGS_RELEASE "/O2 /DNDEBUG")
     set(CMAKE_C_FLAGS_RELEASE   "/O2 /DNDEBUG")
 else()
-    # -s strips debug symbols at link time (linker flag, not compiler flag)
-    # Pass it only to the linker to avoid clang -Wunused-command-line-argument
     set(CMAKE_CXX_FLAGS_RELEASE "-pipe -O2")
     set(CMAKE_C_FLAGS_RELEASE   "-pipe -O2")
     set(CMAKE_EXE_LINKER_FLAGS_RELEASE "${CMAKE_EXE_LINKER_FLAGS_RELEASE} -s")
 endif()
+
+# ── Output paths ───────────────────────────────────────────────────────────────
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/out)
-# On multi-config generators (MSVC, Xcode) the binary lands in out/<Config>/
-# Force single-level output so CI can find it at out/utils(.exe) reliably
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/out)
 foreach(cfg Debug Release RelWithDebInfo MinSizeRel)
     string(TOUPPER ${cfg} CFG)
     set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_${CFG} ${PROJECT_SOURCE_DIR}/out)
 endforeach()
 
-# ── Линковка ──────────────────────────────────────────────────────────────────
-# NDK кросс-компиляция → полный -static (STL через ANDROID_STL=c++_static)
-# Нативно в Termux        → только -static-libstdc++ (bionic libc.so без .a)
-# Linux / macOS / Windows → полный -static
+# ── Static linking ─────────────────────────────────────────────────────────────
 if(CMAKE_CROSSCOMPILING AND CMAKE_ANDROID_NDK)
-    # NDK cross-compile: full static
     set(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
     set(CMAKE_EXE_LINKER_FLAGS "-static")
 elseif(ANDROID)
-    # Termux native: bionic has no static libc.so
     set(CMAKE_EXE_LINKER_FLAGS "-static-libstdc++")
 elseif(MSVC)
-    # MSVC: static runtime via /MT
     set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 elseif(WIN32)
-    # MinGW: static libgcc + libstdc++
     set(CMAKE_EXE_LINKER_FLAGS "-static -static-libgcc -static-libstdc++")
+    set(CMAKE_EXE_LINKER_FLAGS_RELEASE "${CMAKE_EXE_LINKER_FLAGS_RELEASE} -s")
 else()
-    # Linux native: full static
     set(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
     set(CMAKE_EXE_LINKER_FLAGS "-static")
+    set(CMAKE_EXE_LINKER_FLAGS_RELEASE "${CMAKE_EXE_LINKER_FLAGS_RELEASE} -s")
 endif()
 
 include(GNUInstallDirs)
-include(FetchContent)
-
-# ── Threads ───────────────────────────────────────────────────────────────────
-# Termux нативно: pthread встроен в bionic — удовлетворяем CMake вручную.
+# ── Threads ────────────────────────────────────────────────────────────────────
 if(ANDROID AND NOT CMAKE_CROSSCOMPILING)
     set(CMAKE_THREAD_LIBS_INIT     "" CACHE STRING "" FORCE)
     set(CMAKE_HAVE_THREADS_LIBRARY 1)
@@ -68,110 +58,7 @@ else()
     find_package(Threads REQUIRED)
 endif()
 
-# ── XZ / liblzma ──────────────────────────────────────────────────────────────
-# Android cross-compile: FetchContent fails (can't run host binaries during configure).
-# Use the vendored copy in src/liblzma/ instead.
-# Linux / Windows native: FetchContent fetches and builds XZ Utils automatically.
-if(CMAKE_CROSSCOMPILING OR ANDROID)
-    # ── Vendored liblzma (src/liblzma/) ───────────────────────────────────────
-    file(GLOB_RECURSE VENDORED_LZMA_SRCS
-        "${PROJECT_SOURCE_DIR}/src/liblzma/*.c"
-    )
-    # Exclude tablegen helpers and MT-only files (not needed, may not compile)
-    list(FILTER VENDORED_LZMA_SRCS EXCLUDE REGEX
-        "(tablegen|stream_encoder_mt|stream_decoder_mt|outqueue|hardware_cputhreads|tuklib_cpucores|crc32_small|crc64_small)\.c$")
-
-    add_library(liblzma STATIC ${VENDORED_LZMA_SRCS})
-    target_compile_definitions(liblzma PUBLIC HAVE_CONFIG_H LZMA_API_STATIC)
-    target_include_directories(liblzma PUBLIC
-        ${PROJECT_SOURCE_DIR}/src/liblzma
-        ${PROJECT_SOURCE_DIR}/src/liblzma/api
-        ${PROJECT_SOURCE_DIR}/src/liblzma/common
-        ${PROJECT_SOURCE_DIR}/src/liblzma/check
-        ${PROJECT_SOURCE_DIR}/src/liblzma/lzma
-        ${PROJECT_SOURCE_DIR}/src/liblzma/lz
-        ${PROJECT_SOURCE_DIR}/src/liblzma/rangecoder
-        ${PROJECT_SOURCE_DIR}/src/liblzma/delta
-        ${PROJECT_SOURCE_DIR}/src/liblzma/simple
-    )
-    set(LZMA_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/src/liblzma/api)
-    # ── Vendored brotli (src/brotli/) ─────────────────────────────────────────
-    file(GLOB_RECURSE VENDORED_BROTLI_SRCS
-        "${PROJECT_SOURCE_DIR}/src/brotli/common/*.c"
-        "${PROJECT_SOURCE_DIR}/src/brotli/enc/*.c"
-        "${PROJECT_SOURCE_DIR}/src/brotli/dec/*.c"
-    )
-    add_library(brotli STATIC ${VENDORED_BROTLI_SRCS})
-    target_include_directories(brotli PUBLIC
-        ${PROJECT_SOURCE_DIR}/src/brotli/include
-    )
-    set(BROTLI_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/src/brotli/include)
-    set(BROTLI_TARGET brotli)
-
-else()
-    # ── FetchContent (native builds) ───────────────────────────────────────────
-    FetchContent_Declare(
-        xz
-        GIT_REPOSITORY https://github.com/tukaani-project/xz.git
-        GIT_TAG        v5.6.3
-        GIT_SHALLOW    TRUE
-    )
-    set(XZ_BUILD_ENCODERS    ON  CACHE BOOL "" FORCE)
-    set(XZ_BUILD_DECODERS    ON  CACHE BOOL "" FORCE)
-    set(XZ_ENABLE_THREADS    OFF CACHE BOOL "" FORCE)
-    set(XZ_TOOL_XZ           OFF CACHE BOOL "" FORCE)
-    set(XZ_TOOL_XZDEC        OFF CACHE BOOL "" FORCE)
-    set(XZ_TOOL_LZMADEC      OFF CACHE BOOL "" FORCE)
-    set(XZ_TOOL_LZMAINFO     OFF CACHE BOOL "" FORCE)
-    set(XZ_TOOL_XZ_GREP      OFF CACHE BOOL "" FORCE)
-    set(XZ_TOOL_XZ_LESS      OFF CACHE BOOL "" FORCE)
-    set(XZ_TOOL_XZ_DIFF      OFF CACHE BOOL "" FORCE)
-    set(CREATE_XZ_SYMLINKS   OFF CACHE BOOL "" FORCE)
-    set(CREATE_LZMA_SYMLINKS OFF CACHE BOOL "" FORCE)
-    set(XZ_ENABLE_DOXYGEN    OFF CACHE BOOL "" FORCE)
-    set(XZ_ENABLE_SANDBOX    OFF CACHE BOOL "" FORCE)
-    set(ENABLE_NLS           OFF CACHE BOOL "" FORCE)
-    FetchContent_MakeAvailable(xz)
-    set(LZMA_INCLUDE_DIR ${xz_SOURCE_DIR}/src/liblzma/api)
-
-    # ── FetchContent brotli — download sources, build ourselves ───────────────
-    FetchContent_Declare(
-        brotli
-        GIT_REPOSITORY https://github.com/google/brotli.git
-        GIT_TAG        v1.1.0
-        GIT_SHALLOW    TRUE
-    )
-    FetchContent_Populate(brotli)
-    file(GLOB_RECURSE FETCHED_BROTLI_SRCS
-        "${brotli_SOURCE_DIR}/c/common/*.c"
-        "${brotli_SOURCE_DIR}/c/enc/*.c"
-        "${brotli_SOURCE_DIR}/c/dec/*.c"
-    )
-    add_library(brotli STATIC ${FETCHED_BROTLI_SRCS})
-    target_include_directories(brotli PUBLIC ${brotli_SOURCE_DIR}/c/include)
-    set(BROTLI_INCLUDE_DIR ${brotli_SOURCE_DIR}/c/include)
-    set(BROTLI_TARGET brotli)
-
-    # ── Vendored libarchive (native, same as cross-compile) ───────────────
-    # libarchive's own CMakeLists.txt is incompatible with CMake 4.x,
-    # so we build from sources directly on all platforms.
-    file(GLOB NATIVE_LIBARCHIVE_SRCS "${PROJECT_SOURCE_DIR}/src/libarchive/*.c")
-    list(FILTER NATIVE_LIBARCHIVE_SRCS EXCLUDE REGEX
-        "(archive_read_disk_windows|archive_write_disk_windows|filter_fork_windows)\.c$")
-    add_library(archive STATIC ${NATIVE_LIBARCHIVE_SRCS})
-    target_compile_definitions(archive PUBLIC HAVE_CONFIG_H LZMA_API_STATIC)
-    target_compile_options(archive PRIVATE
-        -include ${PROJECT_SOURCE_DIR}/src/libarchive/config.h)
-    target_include_directories(archive PUBLIC
-        ${PROJECT_SOURCE_DIR}/src/libarchive
-        ${LZMA_INCLUDE_DIR}
-        ${PROJECT_SOURCE_DIR}/src/zlib
-    )
-    target_link_libraries(archive PUBLIC liblzma z)
-    set(LIBARCHIVE_TARGET archive)
-endif()
-
-# ── include_directories ───────────────────────────────────────────────────────
+# ── Global include dirs ────────────────────────────────────────────────────────
 include_directories(
     ${PROJECT_SOURCE_DIR}/include
     ${PROJECT_SOURCE_DIR}/src
@@ -180,54 +67,141 @@ include_directories(
     ${PROJECT_SOURCE_DIR}/src/sparse/android-base
     ${PROJECT_SOURCE_DIR}/src/libpng
     ${PROJECT_SOURCE_DIR}/src/libarchive
+    ${PROJECT_SOURCE_DIR}/src/libzip
     ${PROJECT_SOURCE_DIR}/src/md1img
+    ${PROJECT_SOURCE_DIR}/src/bzip2
+    ${PROJECT_SOURCE_DIR}/src/lz4
+    ${PROJECT_SOURCE_DIR}/src/lzo
+    ${PROJECT_SOURCE_DIR}/src/zstd
 )
 
-# ── zlib (вендорная копия) ────────────────────────────────────────────────────
-set(ZLIB_SRC_FILES
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/zlib/adler32.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/zlib/compress.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/zlib/crc32.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/zlib/deflate.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/zlib/gzclose.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/zlib/gzlib.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/zlib/gzread.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/zlib/gzwrite.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/zlib/infback.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/zlib/inffast.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/zlib/inflate.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/zlib/inftrees.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/zlib/trees.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/zlib/uncompr.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/zlib/zutil.c
+###############################################################################
+# ── 1. zlib ────────────────────────────────────────────────────────────────────
+###############################################################################
+set(ZLIB_SRCS
+    src/zlib/adler32.c   src/zlib/compress.c  src/zlib/crc32.c
+    src/zlib/deflate.c   src/zlib/gzclose.c   src/zlib/gzlib.c
+    src/zlib/gzread.c    src/zlib/gzwrite.c   src/zlib/infback.c
+    src/zlib/inffast.c   src/zlib/inflate.c   src/zlib/inftrees.c
+    src/zlib/trees.c     src/zlib/uncompr.c   src/zlib/zutil.c
 )
-add_library(z STATIC ${ZLIB_SRC_FILES})
+add_library(z STATIC ${ZLIB_SRCS})
+target_include_directories(z PUBLIC ${PROJECT_SOURCE_DIR}/src/zlib)
 
-# ── libpng ────────────────────────────────────────────────────────────────────
-set(LIBPNG_SRC_FILES
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/libpng/png.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/libpng/pngerror.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/libpng/pngget.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/libpng/pngmem.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/libpng/pngpread.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/libpng/pngread.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/libpng/pngrio.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/libpng/pngrtran.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/libpng/pngrutil.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/libpng/pngset.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/libpng/pngtrans.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/libpng/pngwio.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/libpng/pngwrite.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/libpng/pngwtran.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/libpng/pngwutil.c
+###############################################################################
+# ── 2. libpng ──────────────────────────────────────────────────────────────────
+###############################################################################
+file(GLOB LIBPNG_SRCS src/libpng/*.c)
+add_library(png STATIC ${LIBPNG_SRCS})
+target_include_directories(png PUBLIC ${PROJECT_SOURCE_DIR}/src/libpng)
+target_link_libraries(png PUBLIC z)
+
+###############################################################################
+# ── 3. liblzma (vendored XZ Utils, threads disabled) ─────────────────────────
+###############################################################################
+file(GLOB_RECURSE LIBLZMA_SRCS src/liblzma/**/*.c src/liblzma/*.c)
+list(FILTER LIBLZMA_SRCS EXCLUDE REGEX
+    "(tablegen|stream_encoder_mt|stream_decoder_mt|outqueue|hardware_cputhreads|crc32_small|crc64_small)\\.c$")
+add_library(liblzma STATIC ${LIBLZMA_SRCS})
+target_compile_definitions(liblzma PUBLIC HAVE_CONFIG_H LZMA_API_STATIC)
+target_include_directories(liblzma PUBLIC
+    ${PROJECT_SOURCE_DIR}/src/liblzma
+    ${PROJECT_SOURCE_DIR}/src/liblzma/api
+    ${PROJECT_SOURCE_DIR}/src/liblzma/common
+    ${PROJECT_SOURCE_DIR}/src/liblzma/check
+    ${PROJECT_SOURCE_DIR}/src/liblzma/lzma
+    ${PROJECT_SOURCE_DIR}/src/liblzma/lz
+    ${PROJECT_SOURCE_DIR}/src/liblzma/rangecoder
+    ${PROJECT_SOURCE_DIR}/src/liblzma/delta
+    ${PROJECT_SOURCE_DIR}/src/liblzma/simple
 )
-add_library(png STATIC ${LIBPNG_SRC_FILES})
+set(LZMA_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/src/liblzma/api)
 
-# ── minizip ───────────────────────────────────────────────────────────────────
-# minizip replaced by libarchive on utils_libarchive branch
-target_link_libraries(png z)
+###############################################################################
+# ── 4. brotli (encoder + decoder, vendored) ───────────────────────────────────
+###############################################################################
+file(GLOB_RECURSE BROTLI_SRCS
+    src/brotli/common/*.c src/brotli/enc/*.c src/brotli/dec/*.c)
+add_library(brotli STATIC ${BROTLI_SRCS})
+target_include_directories(brotli PUBLIC ${PROJECT_SOURCE_DIR}/src/brotli/include)
+set(BROTLI_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/src/brotli/include)
 
-# ── utils executable ──────────────────────────────────────────────────────────
+###############################################################################
+# ── 5. bzip2 ──────────────────────────────────────────────────────────────────
+###############################################################################
+file(GLOB BZIP2_SRCS src/bzip2/*.c)
+add_library(bz2 STATIC ${BZIP2_SRCS})
+target_include_directories(bz2 PUBLIC ${PROJECT_SOURCE_DIR}/src/bzip2)
+
+###############################################################################
+# ── 6. lz4 ────────────────────────────────────────────────────────────────────
+###############################################################################
+set(LZ4_SRCS src/lz4/lz4.c src/lz4/lz4hc.c src/lz4/lz4frame.c src/lz4/xxhash.c)
+add_library(lz4 STATIC ${LZ4_SRCS})
+target_include_directories(lz4 PUBLIC ${PROJECT_SOURCE_DIR}/src/lz4)
+
+###############################################################################
+# ── 7. lzo ────────────────────────────────────────────────────────────────────
+###############################################################################
+file(GLOB LZO_SRCS src/lzo/lzo*.c)
+add_library(lzo2 STATIC ${LZO_SRCS})
+target_compile_definitions(lzo2 PRIVATE HAVE_CONFIG_H)
+target_include_directories(lzo2 PUBLIC ${PROJECT_SOURCE_DIR}/src/lzo)
+
+###############################################################################
+# ── 8. zstd ───────────────────────────────────────────────────────────────────
+###############################################################################
+file(GLOB ZSTD_SRCS src/zstd/*.c)
+list(FILTER ZSTD_SRCS EXCLUDE REGEX "(zstd_v0[0-9]|legacy|fuzz)\\.c$")
+add_library(zstd STATIC ${ZSTD_SRCS})
+target_compile_definitions(zstd PRIVATE ZSTD_MULTITHREAD=0)
+target_include_directories(zstd PUBLIC ${PROJECT_SOURCE_DIR}/src/zstd)
+
+###############################################################################
+# ── 9. libzip (zip only, zlib backend) ────────────────────────────────────────
+###############################################################################
+file(GLOB LIBZIP_SRCS src/libzip/*.c)
+# Exclude backends we don't have (bzip2/lzma/zstd/lz4 algorithm files)
+# and AES/crypto modules
+list(FILTER LIBZIP_SRCS EXCLUDE REGEX
+    "(algorithm_bzip|algorithm_xz|algorithm_zstd|algorithm_lz4|pkware|winzip_aes|crypto)\\.c$")
+add_library(libzip STATIC ${LIBZIP_SRCS})
+target_compile_definitions(libzip PRIVATE HAVE_CONFIG_H)
+target_include_directories(libzip PUBLIC
+    ${PROJECT_SOURCE_DIR}/src/libzip
+    ${PROJECT_SOURCE_DIR}/src/zlib
+)
+target_link_libraries(libzip PUBLIC z)
+
+###############################################################################
+# ── 10. libarchive (tar / cpio / raw + format detection) ─────────────────────
+###############################################################################
+file(GLOB LIBARCHIVE_SRCS src/libarchive/*.c)
+# Exclude platform-specific disk-traversal for wrong OS
+if(NOT WIN32)
+    list(FILTER LIBARCHIVE_SRCS EXCLUDE REGEX
+        "(archive_read_disk_windows|archive_write_disk_windows|filter_fork_windows)\\.c$")
+else()
+    list(FILTER LIBARCHIVE_SRCS EXCLUDE REGEX
+        "(archive_read_disk_posix|archive_write_disk_posix|filter_fork_posix)\\.c$")
+endif()
+# Exclude external-program filters (lzop, lrzip)
+list(FILTER LIBARCHIVE_SRCS EXCLUDE REGEX "(filter_lzop|filter_lrzip)\\.c$")
+
+add_library(archive STATIC ${LIBARCHIVE_SRCS})
+target_compile_definitions(archive PUBLIC HAVE_CONFIG_H LZMA_API_STATIC)
+target_compile_options(archive PRIVATE
+    -include ${PROJECT_SOURCE_DIR}/src/libarchive/config.h)
+target_include_directories(archive PUBLIC
+    ${PROJECT_SOURCE_DIR}/src/libarchive
+    ${PROJECT_SOURCE_DIR}/src/liblzma/api
+    ${PROJECT_SOURCE_DIR}/src/zlib
+)
+target_link_libraries(archive PUBLIC liblzma z)
+
+###############################################################################
+# ── 12. utils executable ──────────────────────────────────────────────────────
+###############################################################################
 file(GLOB SRCS
     "${PROJECT_SOURCE_DIR}/include/*"
     "${PROJECT_SOURCE_DIR}/src/sparse/android-base/*"
@@ -235,13 +209,13 @@ file(GLOB SRCS
     "${PROJECT_SOURCE_DIR}/src/md1img/*"
     "${PROJECT_SOURCE_DIR}/src/*"
 )
-# Exclude minizip sources (replaced by libarchive)
+# Exclude vendored library dirs (built as separate targets above)
 list(FILTER SRCS EXCLUDE REGEX "src/minizip/")
-# sparse_fuzzer is a standalone tool - not part of utils
-list(FILTER SRCS EXCLUDE REGEX "sparse_fuzzer\.cpp$")
-# asprintf is already in POSIX libc and Android bionic - only compile on Windows
+# Exclude standalone fuzz tools
+list(FILTER SRCS EXCLUDE REGEX "sparse_fuzzer\\.cpp$")
+# asprintf is in POSIX/bionic — only needed on Windows
 if(NOT WIN32)
-    list(FILTER SRCS EXCLUDE REGEX "asprintf\.c$")
+    list(FILTER SRCS EXCLUDE REGEX "asprintf\\.c$")
 endif()
 
 add_executable(utils ${SRCS})
@@ -250,13 +224,26 @@ target_include_directories(utils PRIVATE
     ${LZMA_INCLUDE_DIR}
     ${BROTLI_INCLUDE_DIR}
     ${PROJECT_SOURCE_DIR}/src/libarchive
+    ${PROJECT_SOURCE_DIR}/src/libzip
+    ${PROJECT_SOURCE_DIR}/src/bzip2
+    ${PROJECT_SOURCE_DIR}/src/lz4
+    ${PROJECT_SOURCE_DIR}/src/lzo
+    ${PROJECT_SOURCE_DIR}/src/zstd
 )
 
 target_link_libraries(utils
-    png
-    z
-    liblzma
-    ${BROTLI_TARGET}
-    ${LIBARCHIVE_TARGET}
+    png z liblzma brotli
+    bz2 lz4 lzo2 zstd
+    libzip archive
     Threads::Threads
 )
+
+# ── Strip binary in Release ────────────────────────────────────────────────────
+if(CMAKE_BUILD_TYPE STREQUAL "Release" OR CMAKE_BUILD_TYPE STREQUAL "MinSizeRel")
+    if(NOT MSVC AND CMAKE_STRIP)
+        add_custom_command(TARGET utils POST_BUILD
+            COMMAND ${CMAKE_STRIP} --strip-all $<TARGET_FILE:utils>
+            COMMENT "Stripping utils"
+            VERBATIM)
+    endif()
+endif()
