@@ -393,9 +393,7 @@ LOCAL_CFLAGS := -DHAVE_CONFIG_H -DLZMA_API_STATIC
 LOCAL_SRC_FILES := \
 src/liblzma/check/check.c \
 src/liblzma/check/crc32_fast.c \
-src/liblzma/check/crc32_small.c \
 src/liblzma/check/crc64_fast.c \
-src/liblzma/check/crc64_small.c \
 src/liblzma/check/sha256.c \
 src/liblzma/common/alone_decoder.c \
 src/liblzma/common/alone_encoder.c \
@@ -480,9 +478,41 @@ LOCAL_MODULE := libbrotli
 LOCAL_C_INCLUDES := src/brotli/include
 LOCAL_CFLAGS := -O2
 LOCAL_SRC_FILES := \
-$(wildcard src/brotli/common/*.c) \
-$(wildcard src/brotli/enc/*.c) \
-$(wildcard src/brotli/dec/*.c)
+src/brotli/common/constants.c \
+src/brotli/common/context.c \
+src/brotli/common/dictionary.c \
+src/brotli/common/platform.c \
+src/brotli/common/shared_dictionary.c \
+src/brotli/common/transform.c \
+src/brotli/enc/backward_references.c \
+src/brotli/enc/backward_references_hq.c \
+src/brotli/enc/bit_cost.c \
+src/brotli/enc/block_splitter.c \
+src/brotli/enc/brotli_bit_stream.c \
+src/brotli/enc/cluster.c \
+src/brotli/enc/command.c \
+src/brotli/enc/compound_dictionary.c \
+src/brotli/enc/compress_fragment.c \
+src/brotli/enc/compress_fragment_two_pass.c \
+src/brotli/enc/dictionary_hash.c \
+src/brotli/enc/encode.c \
+src/brotli/enc/encoder_dict.c \
+src/brotli/enc/entropy_encode.c \
+src/brotli/enc/fast_log.c \
+src/brotli/enc/histogram.c \
+src/brotli/enc/literal_cost.c \
+src/brotli/enc/memory.c \
+src/brotli/enc/metablock.c \
+src/brotli/enc/static_dict.c \
+src/brotli/enc/static_dict_lut.c \
+src/brotli/enc/static_init.c \
+src/brotli/enc/utf8_util.c \
+src/brotli/dec/bit_reader.c \
+src/brotli/dec/decode.c \
+src/brotli/dec/huffman.c \
+src/brotli/dec/prefix.c \
+src/brotli/dec/state.c \
+src/brotli/dec/static_init.c
 include $(BUILD_STATIC_LIBRARY)
 
 #####################################################################################
