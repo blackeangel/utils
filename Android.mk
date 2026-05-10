@@ -102,32 +102,277 @@ src/libpng/pngwutil.c \
 include $(BUILD_STATIC_LIBRARY)
 
 ##############################################################################
-# minizip
-##############################################################################
+
+#####################################################################################
+# libbz2
+#####################################################################################
 include $(CLEAR_VARS)
-
-LOCAL_MODULE := libminizip
-
-LOCAL_CFLAGS := \
-    -DHAVE_HIDDEN \
-    -DZLIB_CONST
-
-LOCAL_C_INCLUDES := \
-        src/minizip \
-
-LOCAL_SRC_FILES += \
-src/minizip/ioapi.c \
-src/minizip/miniunz.c \
-src/minizip/minizip.c \
-src/minizip/mztools.c \
-src/minizip/unzip.c \
-src/minizip/zip.c \
+LOCAL_MODULE        := libbz2
+LOCAL_CFLAGS        := -O2
+LOCAL_C_INCLUDES    := src/bzip2
+LOCAL_SRC_FILES     := \
+src/bzip2/blocksort.c \
+src/bzip2/bzlib.c \
+src/bzip2/compress.c \
+src/bzip2/crctable.c \
+src/bzip2/decompress.c \
+src/bzip2/huffman.c \
+src/bzip2/randtable.c
 
 include $(BUILD_STATIC_LIBRARY)
 
 #####################################################################################
-#utils
+# liblz4
+#####################################################################################
+include $(CLEAR_VARS)
+LOCAL_MODULE        := liblz4
+LOCAL_CFLAGS        := -O2
+LOCAL_C_INCLUDES    := src/lz4
+LOCAL_SRC_FILES     := \
+src/lz4/lz4.c \
+src/lz4/lz4frame.c \
+src/lz4/lz4hc.c \
+src/lz4/xxhash.c
 
+include $(BUILD_STATIC_LIBRARY)
+
+#####################################################################################
+# liblzo2
+#####################################################################################
+include $(CLEAR_VARS)
+LOCAL_MODULE        := liblzo2
+LOCAL_CFLAGS        := -O2 -DHAVE_CONFIG_H
+LOCAL_C_INCLUDES    := src/lzo
+LOCAL_SRC_FILES     := \
+src/lzo/lzo1.c \
+src/lzo/lzo1_99.c \
+src/lzo/lzo1a.c \
+src/lzo/lzo1a_99.c \
+src/lzo/lzo1b_1.c \
+src/lzo/lzo1b_2.c \
+src/lzo/lzo1b_3.c \
+src/lzo/lzo1b_4.c \
+src/lzo/lzo1b_5.c \
+src/lzo/lzo1b_6.c \
+src/lzo/lzo1b_7.c \
+src/lzo/lzo1b_8.c \
+src/lzo/lzo1b_9.c \
+src/lzo/lzo1b_99.c \
+src/lzo/lzo1b_9x.c \
+src/lzo/lzo1b_cc.c \
+src/lzo/lzo1b_d1.c \
+src/lzo/lzo1b_d2.c \
+src/lzo/lzo1b_rr.c \
+src/lzo/lzo1b_xx.c \
+src/lzo/lzo1c_1.c \
+src/lzo/lzo1c_2.c \
+src/lzo/lzo1c_3.c \
+src/lzo/lzo1c_4.c \
+src/lzo/lzo1c_5.c \
+src/lzo/lzo1c_6.c \
+src/lzo/lzo1c_7.c \
+src/lzo/lzo1c_8.c \
+src/lzo/lzo1c_9.c \
+src/lzo/lzo1c_99.c \
+src/lzo/lzo1c_9x.c \
+src/lzo/lzo1c_cc.c \
+src/lzo/lzo1c_d1.c \
+src/lzo/lzo1c_d2.c \
+src/lzo/lzo1c_rr.c \
+src/lzo/lzo1c_xx.c \
+src/lzo/lzo1f_1.c \
+src/lzo/lzo1f_9x.c \
+src/lzo/lzo1f_d1.c \
+src/lzo/lzo1f_d2.c \
+src/lzo/lzo1x_1.c \
+src/lzo/lzo1x_1k.c \
+src/lzo/lzo1x_1l.c \
+src/lzo/lzo1x_1o.c \
+src/lzo/lzo1x_9x.c \
+src/lzo/lzo1x_d1.c \
+src/lzo/lzo1x_d2.c \
+src/lzo/lzo1x_d3.c \
+src/lzo/lzo1x_o.c \
+src/lzo/lzo1y_1.c \
+src/lzo/lzo1y_9x.c \
+src/lzo/lzo1y_d1.c \
+src/lzo/lzo1y_d2.c \
+src/lzo/lzo1y_d3.c \
+src/lzo/lzo1y_o.c \
+src/lzo/lzo1z_9x.c \
+src/lzo/lzo1z_d1.c \
+src/lzo/lzo1z_d2.c \
+src/lzo/lzo1z_d3.c \
+src/lzo/lzo2a_9x.c \
+src/lzo/lzo2a_d1.c \
+src/lzo/lzo2a_d2.c \
+src/lzo/lzo_crc.c \
+src/lzo/lzo_init.c \
+src/lzo/lzo_ptr.c \
+src/lzo/lzo_str.c \
+src/lzo/lzo_util.c
+
+include $(BUILD_STATIC_LIBRARY)
+
+#####################################################################################
+# libzstd
+#####################################################################################
+include $(CLEAR_VARS)
+LOCAL_MODULE        := libzstd
+LOCAL_CFLAGS        := -O2 -DZSTD_MULTITHREAD=0
+LOCAL_C_INCLUDES    := src/zstd
+LOCAL_SRC_FILES     := \
+src/zstd/debug.c \
+src/zstd/entropy_common.c \
+src/zstd/error_private.c \
+src/zstd/fse_compress.c \
+src/zstd/fse_decompress.c \
+src/zstd/hist.c \
+src/zstd/huf_compress.c \
+src/zstd/huf_decompress.c \
+src/zstd/pool.c \
+src/zstd/threading.c \
+src/zstd/xxhash.c \
+src/zstd/zstd_common.c \
+src/zstd/zstd_compress.c \
+src/zstd/zstd_compress_literals.c \
+src/zstd/zstd_compress_sequences.c \
+src/zstd/zstd_compress_superblock.c \
+src/zstd/zstd_ddict.c \
+src/zstd/zstd_decompress.c \
+src/zstd/zstd_decompress_block.c \
+src/zstd/zstd_double_fast.c \
+src/zstd/zstd_fast.c \
+src/zstd/zstd_lazy.c \
+src/zstd/zstd_ldm.c \
+src/zstd/zstd_opt.c \
+src/zstd/zstd_preSplit.c \
+src/zstd/zstdmt_compress.c
+
+include $(BUILD_STATIC_LIBRARY)
+
+#####################################################################################
+# libzip  (deflate-only, via zlib)
+#####################################################################################
+include $(CLEAR_VARS)
+LOCAL_MODULE        := libzip
+LOCAL_CFLAGS        := -O2 -DHAVE_CONFIG_H -D_FILE_OFFSET_BITS=64
+LOCAL_C_INCLUDES    := \
+	src/libzip \
+	src/zlib
+LOCAL_SRC_FILES     := \
+src/libzip/zip_add.c \
+src/libzip/zip_add_dir.c \
+src/libzip/zip_add_entry.c \
+src/libzip/zip_algorithm_deflate.c \
+src/libzip/zip_buffer.c \
+src/libzip/zip_close.c \
+src/libzip/zip_delete.c \
+src/libzip/zip_dir_add.c \
+src/libzip/zip_dirent.c \
+src/libzip/zip_discard.c \
+src/libzip/zip_entry.c \
+src/libzip/zip_err_str.c \
+src/libzip/zip_error.c \
+src/libzip/zip_error_clear.c \
+src/libzip/zip_error_get.c \
+src/libzip/zip_error_get_sys_type.c \
+src/libzip/zip_error_strerror.c \
+src/libzip/zip_error_to_str.c \
+src/libzip/zip_extra_field.c \
+src/libzip/zip_extra_field_api.c \
+src/libzip/zip_fclose.c \
+src/libzip/zip_fdopen.c \
+src/libzip/zip_file_add.c \
+src/libzip/zip_file_error_clear.c \
+src/libzip/zip_file_error_get.c \
+src/libzip/zip_file_get_comment.c \
+src/libzip/zip_file_get_external_attributes.c \
+src/libzip/zip_file_get_offset.c \
+src/libzip/zip_file_rename.c \
+src/libzip/zip_file_replace.c \
+src/libzip/zip_file_set_comment.c \
+src/libzip/zip_file_set_encryption.c \
+src/libzip/zip_file_set_external_attributes.c \
+src/libzip/zip_file_set_mtime.c \
+src/libzip/zip_file_strerror.c \
+src/libzip/zip_fopen.c \
+src/libzip/zip_fopen_encrypted.c \
+src/libzip/zip_fopen_index.c \
+src/libzip/zip_fopen_index_encrypted.c \
+src/libzip/zip_fread.c \
+src/libzip/zip_fseek.c \
+src/libzip/zip_ftell.c \
+src/libzip/zip_get_archive_comment.c \
+src/libzip/zip_get_archive_flag.c \
+src/libzip/zip_get_file_comment.c \
+src/libzip/zip_get_name.c \
+src/libzip/zip_get_num_entries.c \
+src/libzip/zip_get_num_files.c \
+src/libzip/zip_hash.c \
+src/libzip/zip_io_util.c \
+src/libzip/zip_libzip_version.c \
+src/libzip/zip_memdup.c \
+src/libzip/zip_name_locate.c \
+src/libzip/zip_new.c \
+src/libzip/zip_open.c \
+src/libzip/zip_progress.c \
+src/libzip/zip_random_unix.c \
+src/libzip/zip_realloc.c \
+src/libzip/zip_rename.c \
+src/libzip/zip_replace.c \
+src/libzip/zip_set_archive_comment.c \
+src/libzip/zip_set_archive_flag.c \
+src/libzip/zip_set_default_password.c \
+src/libzip/zip_set_file_comment.c \
+src/libzip/zip_set_file_compression.c \
+src/libzip/zip_set_name.c \
+src/libzip/zip_source_accept_empty.c \
+src/libzip/zip_source_begin_write.c \
+src/libzip/zip_source_begin_write_cloning.c \
+src/libzip/zip_source_buffer.c \
+src/libzip/zip_source_call.c \
+src/libzip/zip_source_close.c \
+src/libzip/zip_source_commit_write.c \
+src/libzip/zip_source_compress.c \
+src/libzip/zip_source_crc.c \
+src/libzip/zip_source_error.c \
+src/libzip/zip_source_file_common.c \
+src/libzip/zip_source_file_stdio.c \
+src/libzip/zip_source_file_stdio_named.c \
+src/libzip/zip_source_free.c \
+src/libzip/zip_source_function.c \
+src/libzip/zip_source_get_dostime.c \
+src/libzip/zip_source_get_file_attributes.c \
+src/libzip/zip_source_is_deleted.c \
+src/libzip/zip_source_layered.c \
+src/libzip/zip_source_open.c \
+src/libzip/zip_source_pass_to_lower_layer.c \
+src/libzip/zip_source_read.c \
+src/libzip/zip_source_remove.c \
+src/libzip/zip_source_rollback_write.c \
+src/libzip/zip_source_seek.c \
+src/libzip/zip_source_seek_write.c \
+src/libzip/zip_source_stat.c \
+src/libzip/zip_source_supports.c \
+src/libzip/zip_source_tell.c \
+src/libzip/zip_source_tell_write.c \
+src/libzip/zip_source_window.c \
+src/libzip/zip_source_write.c \
+src/libzip/zip_source_zip.c \
+src/libzip/zip_source_zip_new.c \
+src/libzip/zip_stat.c \
+src/libzip/zip_stat_index.c \
+src/libzip/zip_stat_init.c \
+src/libzip/zip_strerror.c \
+src/libzip/zip_string.c \
+src/libzip/zip_unchange.c \
+src/libzip/zip_unchange_all.c \
+src/libzip/zip_unchange_archive.c \
+src/libzip/zip_unchange_data.c \
+src/libzip/zip_utf-8.c
+
+include $(BUILD_STATIC_LIBRARY)
 #####################################################################################
 # liblzma (vendored XZ Utils, threads disabled)
 include $(CLEAR_VARS)
@@ -252,8 +497,13 @@ LOCAL_C_INCLUDES := \
 	src/liblzma \
 	src/liblzma/api \
 	src/md1img \
+	src/bzip2 \
+	src/lz4 \
+	src/lzo \
+	src/zstd \
+	src/libzip \
 	src/brotli/include \
-    src/ext2
+	src/ext2
 
 LOCAL_CXXFLAGS := -fexceptions -std=c++2a -pipe -O2 -s -DLZMA_API_STATIC
 
@@ -267,9 +517,13 @@ LOCAL_STATIC_LIBRARIES := \
 z \
 sparse \
 libpng \
-minizip \
 liblzma \
-libbrotli
+libbrotli \
+libbz2 \
+liblz4 \
+liblzo2 \
+libzstd \
+libzip
 
 include $(BUILD_EXECUTABLE)
 
