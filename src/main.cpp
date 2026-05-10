@@ -41,6 +41,8 @@ where function is:
 
   img2sdat <system.img> [-o outdir] [-v version] [-p prefix] [-b [quality]]
 
+  tar_repacker <extract|pack> ...
+
   avb_fixed <vbmeta.img> [--disable_verified | --restore]
 
   append2simg <output> <input>
@@ -101,6 +103,9 @@ std::unique_ptr<UtilBase> make_object(const char* name)
     }
     if (name == "img2sdat"sv) {
         return std::make_unique<Img2Sdat>();
+    }
+    if (name == "tar_repacker"sv) {
+        return std::make_unique<TarRepacker>();
     }
     if (name == "avb_fixed"sv) {
         return std::make_unique<AvbFixed>();

@@ -516,6 +516,103 @@ src/brotli/dec/static_init.c
 include $(BUILD_STATIC_LIBRARY)
 
 #####################################################################################
+# libarchive (tar/cpio/raw + format detection)
+#######################################################
+include $(CLEAR_VARS)
+LOCAL_MODULE        := libarchive
+LOCAL_CFLAGS        := -O2 -DHAVE_CONFIG_H -DLZMA_API_STATIC \
+                       -include $(LOCAL_PATH)/src/libarchive/config.h
+LOCAL_C_INCLUDES    := \
+	src/libarchive \
+	src/liblzma \
+	src/liblzma/api \
+	src/zlib
+LOCAL_SRC_FILES     := \
+src/libarchive/archive_acl.c \
+src/libarchive/archive_blake2s_ref.c \
+src/libarchive/archive_blake2sp_ref.c \
+src/libarchive/archive_check_magic.c \
+src/libarchive/archive_cmdline.c \
+src/libarchive/archive_cryptor.c \
+src/libarchive/archive_digest.c \
+src/libarchive/archive_entry.c \
+src/libarchive/archive_entry_copy_stat.c \
+src/libarchive/archive_entry_link_resolver.c \
+src/libarchive/archive_entry_sparse.c \
+src/libarchive/archive_entry_stat.c \
+src/libarchive/archive_entry_strmode.c \
+src/libarchive/archive_entry_xattr.c \
+src/libarchive/archive_hmac.c \
+src/libarchive/archive_match.c \
+src/libarchive/archive_options.c \
+src/libarchive/archive_pathmatch.c \
+src/libarchive/archive_ppmd7.c \
+src/libarchive/archive_ppmd8.c \
+src/libarchive/archive_random.c \
+src/libarchive/archive_rb.c \
+src/libarchive/archive_read.c \
+src/libarchive/archive_read_add_passphrase.c \
+src/libarchive/archive_read_data_into_fd.c \
+src/libarchive/archive_read_disk_entry_from_file.c \
+src/libarchive/archive_read_disk_posix.c \
+src/libarchive/archive_read_disk_set_standard_lookup.c \
+src/libarchive/archive_read_extract.c \
+src/libarchive/archive_read_extract2.c \
+src/libarchive/archive_read_open_fd.c \
+src/libarchive/archive_read_open_file.c \
+src/libarchive/archive_read_open_filename.c \
+src/libarchive/archive_read_open_memory.c \
+src/libarchive/archive_read_set_options.c \
+src/libarchive/archive_read_support_filter_all.c \
+src/libarchive/archive_read_support_filter_by_code.c \
+src/libarchive/archive_read_support_filter_compress.c \
+src/libarchive/archive_read_support_filter_gzip.c \
+src/libarchive/archive_read_support_filter_none.c \
+src/libarchive/archive_read_support_filter_program.c \
+src/libarchive/archive_read_support_filter_xz.c \
+src/libarchive/archive_read_support_format_all.c \
+src/libarchive/archive_read_support_format_by_code.c \
+src/libarchive/archive_read_support_format_cpio.c \
+src/libarchive/archive_read_support_format_empty.c \
+src/libarchive/archive_read_support_format_raw.c \
+src/libarchive/archive_read_support_format_tar.c \
+src/libarchive/archive_string.c \
+src/libarchive/archive_string_sprintf.c \
+src/libarchive/archive_time.c \
+src/libarchive/archive_util.c \
+src/libarchive/archive_version_details.c \
+src/libarchive/archive_virtual.c \
+src/libarchive/archive_write.c \
+src/libarchive/archive_write_add_filter.c \
+src/libarchive/archive_write_add_filter_by_name.c \
+src/libarchive/archive_write_add_filter_compress.c \
+src/libarchive/archive_write_add_filter_gzip.c \
+src/libarchive/archive_write_add_filter_none.c \
+src/libarchive/archive_write_add_filter_program.c \
+src/libarchive/archive_write_add_filter_xz.c \
+src/libarchive/archive_write_disk_posix.c \
+src/libarchive/archive_write_disk_set_standard_lookup.c \
+src/libarchive/archive_write_open_fd.c \
+src/libarchive/archive_write_open_file.c \
+src/libarchive/archive_write_open_filename.c \
+src/libarchive/archive_write_open_memory.c \
+src/libarchive/archive_write_set_format.c \
+src/libarchive/archive_write_set_format_by_name.c \
+src/libarchive/archive_write_set_format_cpio.c \
+src/libarchive/archive_write_set_format_cpio_binary.c \
+src/libarchive/archive_write_set_format_cpio_newc.c \
+src/libarchive/archive_write_set_format_cpio_odc.c \
+src/libarchive/archive_write_set_format_gnutar.c \
+src/libarchive/archive_write_set_format_pax.c \
+src/libarchive/archive_write_set_format_raw.c \
+src/libarchive/archive_write_set_format_ustar.c \
+src/libarchive/archive_write_set_options.c \
+src/libarchive/archive_write_set_passphrase.c \
+src/libarchive/filter_fork_posix.c
+
+include $(BUILD_STATIC_LIBRARY)
+
+#######################################################
 
 include $(CLEAR_VARS)
 
@@ -527,11 +624,13 @@ LOCAL_C_INCLUDES := \
 	src/liblzma \
 	src/liblzma/api \
 	src/md1img \
+	src/tar_repacker \
 	src/bzip2 \
 	src/lz4 \
 	src/lzo \
 	src/zstd \
 	src/libzip \
+	src/libarchive \
 	src/brotli/include \
 	src/ext2
 
@@ -541,7 +640,8 @@ LOCAL_LDFLAGS := -fPIE -static -ldl
 
 LOCAL_SRC_FILES := $(wildcard src/*.cpp) \
 					$(wildcard src/*.cxx) \
-					$(wildcard src/md1img/*.cpp)
+					$(wildcard src/md1img/*.cpp) \
+					$(wildcard src/tar_repacker/*.cpp)
 
 LOCAL_STATIC_LIBRARIES := \
 z \
@@ -553,7 +653,8 @@ libbz2 \
 liblz4 \
 liblzo2 \
 libzstd \
-libzip
+libzip \
+libarchive
 
 include $(BUILD_EXECUTABLE)
 

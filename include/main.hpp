@@ -391,6 +391,20 @@ private:
 
 ///////////////////////////////////////////////////////////////
 
+class TarRepacker : public UtilBase
+{
+public:
+    void show_help() override;
+    ParseResult parse_cmd_line(int argc, char* argv[]) override;
+    ProcessResult process() override;
+private:
+    std::string mode_;
+    std::string archive_path_;
+    std::string dir_path_;
+};
+
+///////////////////////////////////////////////////////////////
+
 class AvbFixed : public UtilBase
 {
 public:

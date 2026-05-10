@@ -207,6 +207,7 @@ file(GLOB SRCS
     "${PROJECT_SOURCE_DIR}/src/sparse/android-base/*"
     "${PROJECT_SOURCE_DIR}/src/sparse/*"
     "${PROJECT_SOURCE_DIR}/src/md1img/*"
+    "${PROJECT_SOURCE_DIR}/src/tar_repacker/*"
     "${PROJECT_SOURCE_DIR}/src/*"
 )
 # Exclude vendored library dirs (built as separate targets above)
@@ -229,6 +230,7 @@ target_include_directories(utils PRIVATE
     ${PROJECT_SOURCE_DIR}/src/lz4
     ${PROJECT_SOURCE_DIR}/src/lzo
     ${PROJECT_SOURCE_DIR}/src/zstd
+    ${PROJECT_SOURCE_DIR}/src/tar_repacker
 )
 
 target_link_libraries(utils
