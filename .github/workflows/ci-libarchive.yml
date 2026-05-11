@@ -1,0 +1,140 @@
+name: CI (libarchive)
+
+on:
+  push:
+    branches: [ utils_libarchive ]
+    paths-ignore:
+      - '**.md'
+      - 'LICENSE'
+  pull_request:
+    branches: [ utils_libarchive ]
+
+jobs:
+  # ── Linux x86_64 ─────────────────────────────────────────────────────────────
+  build-linux:
+    name: Linux x86_64
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install Ninja
+        run: sudo apt-get install -y ninja-build
+
+      - name: Configure
+        run: |
+          cmake -S . -B build-linux \
+            -GNinja \
+            -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build-linux -- -j$(nproc)
+
+      - name: Check binary
+        run: |
+          file out/utils
+          ldd out/utils && echo "WARNING: not static" || echo "OK: static binary"
+          ./out/utils help || true
+
+  # ── Windows x86_64 (MinGW-w64) ───────────────────────────────────────────────
+  build-windows:
+    name: Windows x86_64
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-ninja
+            git
+            zip
+
+      - name: Configure
+        run: |
+          cmake -S . -B build-windows -GNinja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_C_COMPILER=gcc \
+            -DCMAKE_CXX_COMPILER=g++
+
+      - name: Build
+        run: cmake --build build-windows -- -j$(nproc)
+
+      - name: Check binary
+        run: |
+          file out/utils.exe
+          ./out/utils.exe help || true
+
+  # ── Android NDK (cmake, matrix) ──────────────────────────────────────────────
+  build-android-cmake:
+    name: Android/${{ matrix.abi }} (CMake)
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        abi: [ armeabi-v7a, arm64-v8a ]
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup NDK r25c
+        uses: nttld/setup-ndk@v1
+        id: ndk
+        with:
+          ndk-version: r25c
+          add-to-path: true
+
+      - name: Install Ninja
+        run: sudo apt-get install -y ninja-build
+
+      - name: Configure
+        run: |
+          cmake -S . -B build-${{ matrix.abi }} -GNinja \
+            -DANDROID_ABI=${{ matrix.abi }} \
+            -DCMAKE_TOOLCHAIN_FILE=${{ steps.ndk.outputs.ndk-path }}/build/cmake/android.toolchain.cmake \
+            -DANDROID_NATIVE_API_LEVEL=30 \
+            -DANDROID_STL=c++_static \
+            -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build-${{ matrix.abi }} -- -j$(nproc)
+
+      - name: Check binary
+        run: |
+          file out/utils
+          ls -lh out/utils
+
+  # ── Android NDK (ndk-build, Android.mk) ──────────────────────────────────────
+  build-android-ndk:
+    name: Android (ndk-build)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup NDK r25c
+        uses: nttld/setup-ndk@v1
+        id: ndk
+        with:
+          ndk-version: r25c
+          add-to-path: true
+
+      - name: Build armeabi-v7a + arm64-v8a
+        run: |
+          ${{ steps.ndk.outputs.ndk-path }}/ndk-build \
+            NDK_PROJECT_PATH=. \
+            NDK_APP_LIBS_OUT=out/ndk \
+            NDK_APPLICATION_MK=Application.mk \
+            -j$(nproc)
+
+      - name: Check binaries
+        run: |
+          find out/ndk -name "bin_utils" | while read f; do
+            echo "--- $f ---"
+            file "$f"
+            ls -lh "$f"
+          done
