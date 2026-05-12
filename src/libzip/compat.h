@@ -1,9 +1,12 @@
 #define _FILE_OFFSET_BITS 64
 #define _LARGEFILE_SOURCE 1
-#include <sys/types.h>
-#include <time.h>
 #ifndef _HAD_LIBZIP_COMPAT_H
 #define _HAD_LIBZIP_COMPAT_H
+
+#if !defined(_WIN32)
+#  include <sys/types.h>
+#  include <time.h>
+#endif
 
 /*
   compat.h -- compatibility defines.
@@ -277,7 +280,7 @@ typedef long zip_off_t;
 # define explicit_memset(p, v, n) memset((p), (v), (n))
 #endif
 
-#if !defined(_WIN32) && !defined(HAVE_LOCALTIME_S) && !defined(localtime_s)
+#if !defined(_WIN32) && !HAVE_LOCALTIME_S && !defined(localtime_s)
 # include <time.h>
 static inline int localtime_s_compat(struct tm *tm, const time_t *t) {
     struct tm *r = localtime_r(t, tm);
