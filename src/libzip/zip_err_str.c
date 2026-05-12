@@ -49,7 +49,7 @@ const int _zip_err_str_count = 37;
 
 /* Stub: encryption not supported in this build */
 #include "zipint.h"
-const zip_encryption_implementation
+zip_encryption_implementation
 _zip_get_encryption_implementation(zip_uint16_t method, int operation) {
     (void)method; (void)operation;
     return NULL;

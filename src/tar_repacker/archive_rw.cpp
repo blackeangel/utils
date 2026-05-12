@@ -6,7 +6,7 @@
 
 #include <algorithm>
 #include <cstring>
-#include <format>
+#include "format_compat.hpp"
 #include <stdexcept>
 #include <string>
 

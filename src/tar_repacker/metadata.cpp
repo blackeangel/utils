@@ -2,7 +2,7 @@
 
 #include <algorithm>
 #include <cstdio>
-#include <format>
+#include "format_compat.hpp"
 #include <fstream>
 #include <sstream>
 #include <stdexcept>

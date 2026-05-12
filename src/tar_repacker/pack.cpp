@@ -7,7 +7,7 @@
 #include <algorithm>
 #include <cstdio>
 #include <filesystem>
-#include <format>
+#include "format_compat.hpp"
 #include <fstream>
 #include <set>
 #include <stdexcept>

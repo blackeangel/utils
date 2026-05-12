@@ -5,7 +5,7 @@
 #include <archive_entry.h>      // AE_IFREG / AE_IFDIR / AE_IFLNK constants
 #include <cstdio>
 #include <filesystem>
-#include <format>
+#include "format_compat.hpp"
 #include <fstream>
 #include <stdexcept>
 #include <string>
