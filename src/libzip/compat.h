@@ -145,7 +145,7 @@ typedef struct stat zip_os_stat_t;
 
 #if defined(HAVE_FTELLO) && defined(HAVE_FSEEKO)
 /* Using off_t */
-#if !defined(_WIN32) && !defined(_off_t) && !defined(__off_t_defined)
+#if defined(__linux__) || defined(__ANDROID__) || defined(__APPLE__)
 #  include <sys/types.h>
 #endif
 typedef off_t zip_off_t;
