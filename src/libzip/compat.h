@@ -3,11 +3,6 @@
 #ifndef _HAD_LIBZIP_COMPAT_H
 #define _HAD_LIBZIP_COMPAT_H
 
-#if !defined(_WIN32)
-#  include <sys/types.h>
-#  include <time.h>
-#endif
-
 /*
   compat.h -- compatibility defines.
   Copyright (C) 1999-2025 Dieter Baron and Thomas Klausner
@@ -150,6 +145,9 @@ typedef struct stat zip_os_stat_t;
 
 #if defined(HAVE_FTELLO) && defined(HAVE_FSEEKO)
 /* Using off_t */
+#if !defined(_WIN32) && !defined(_off_t) && !defined(__off_t_defined)
+#  include <sys/types.h>
+#endif
 typedef off_t zip_off_t;
 #if SIZEOF_OFF_T == 8
 #define ZIP_OFF_MAX ZIP_INT64_MAX
