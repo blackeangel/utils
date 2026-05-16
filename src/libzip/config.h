@@ -43,9 +43,11 @@
 #ifdef _WIN32
 # define HAVE_WINDOWS_H 1
 # define HAVE__SETMODE 1
+# define HAVE__SNWPRINTF_S 1
 # undef  HAVE_FDOPEN
 # undef  HAVE_FSEEKO
 # undef  HAVE_FTELLO
+# undef  HAVE_LOCALTIME_R
 # define HAVE_FSEEKI64 1
 # define HAVE_FTELLI64 1
 #endif

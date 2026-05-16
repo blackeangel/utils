@@ -55,7 +55,6 @@ LOCAL_SRC_FILES += \
 src/sparse/android-base/mapped_file.cpp \
 src/sparse/android-base/stringprintf.cpp \
 src/sparse/append2simg.cpp \
-src/sparse/asprintf.c \
 src/sparse/backed_block.cpp \
 src/sparse/img2simg.cpp \
 src/sparse/output_file.cpp \
