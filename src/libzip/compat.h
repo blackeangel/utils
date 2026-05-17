@@ -182,6 +182,7 @@ typedef long zip_off_t;
 #endif
 
 #ifndef HAVE_FTELLO
+#include <stdio.h>
 #define ftello(s) ((long)ftell((s)))
 #endif
 
