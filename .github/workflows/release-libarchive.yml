@@ -192,7 +192,11 @@ jobs:
           merge-multiple: true
 
       - name: List artifacts
-        run: ls -lh artifacts/
+        run: |
+          echo "=== Flat listing ==="
+          ls -lh artifacts/ 2>/dev/null || true
+          echo "=== Recursive listing ==="
+          find artifacts -type f | sort
 
       - name: Determine tag name
         id: tag
@@ -254,11 +258,5 @@ jobs:
           prerelease: true
           target_commitish: utils_libarchive
           files: |
-            artifacts/utils-libarchive_linux_x86_64.tar.gz
-            artifacts/utils-libarchive_windows_x86_64.zip
-            artifacts/utils-libarchive_android_armeabi-v7a.zip
-            artifacts/utils-libarchive_android_arm64-v8a.zip
-            artifacts/utils-libarchive_android_x86.zip
-            artifacts/utils-libarchive_android_x86_64.zip
-            artifacts/utils-libarchive_android_ndk_armeabi-v7a.zip
-            artifacts/utils-libarchive_android_ndk_arm64-v8a.zip
+            artifacts/**/*.tar.gz
+            artifacts/**/*.zip

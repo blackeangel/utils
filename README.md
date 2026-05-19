@@ -169,6 +169,21 @@ Outputs: `<prefix>.new.dat[.br]`  `<prefix>.transfer.list`
 
 ---
 
+#### `tar_repacker`
+Extract or repack Android TAR archives with full metadata preservation.  
+Supports PAX extended headers, SELinux contexts, capabilities, symlinks, uid/gid.  
+Supported input formats: `.tar`, `.tar.gz`, `.tar.bz2`, `.tar.xz`, `.tar.zst`, `.tar.lz4`
+```
+utils tar_repacker extract <archive.tar[.gz|.bz2|.xz|.zst|.lz4]> [output_dir]
+utils tar_repacker pack    <source_dir> <output.tar>
+```
+- `extract` — unpacks all entries to `output_dir` (default: archive name without extension)  
+  Writes `_metadata.txt` with uid, gid, mode, SELinux context, capabilities, symlink targets
+- `pack` — reads `_metadata.txt` and rebuilds the TAR with original PAX metadata  
+  Output is always a plain (uncompressed) TAR
+
+---
+
 #### `shared_block_detector`
 Detect shared blocks in sparse ext4 and raw ext4 files.
 ```
@@ -523,6 +538,21 @@ utils img2sdat <system.img> [-o outdir] [-v version] [-p prefix] [-b [quality]]
 - `-b [quality]` — сжать `.new.dat` через Brotli → `.new.dat.br`; качество `0`–`11`, по умолчанию `6`
 
 Результат: `<prefix>.new.dat[.br]`  `<prefix>.transfer.list`
+
+---
+
+#### `tar_repacker`
+Распаковка и переупаковка Android TAR-архивов с полным сохранением метаданных.  
+Поддерживает PAX extended headers, SELinux контексты, capabilities, симлинки, uid/gid.  
+Поддерживаемые форматы входа: `.tar`, `.tar.gz`, `.tar.bz2`, `.tar.xz`, `.tar.zst`, `.tar.lz4`
+```
+utils tar_repacker extract <archive.tar[.gz|.bz2|.xz|.zst|.lz4]> [output_dir]
+utils tar_repacker pack    <source_dir> <output.tar>
+```
+- `extract` — распаковывает все файлы в `output_dir` (по умолчанию: имя архива без расширений)  
+  Записывает `_metadata.txt` с uid, gid, mode, SELinux-контекстом, capabilities и целями симлинков
+- `pack` — читает `_metadata.txt` и пересобирает TAR с оригинальными PAX-метаданными  
+  Результат всегда несжатый TAR
 
 ---
 
