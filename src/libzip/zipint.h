@@ -512,6 +512,11 @@ typedef struct _zip_pkware_keys zip_pkware_keys_t;
 
 
 #ifdef HAVE_EXPLICIT_MEMSET
+/* explicit_memset: POSIX/BSD-specific — stub for other platforms */
+#ifndef explicit_memset
+#  include <string.h>
+#  define explicit_memset(p, v, n) memset((p), (v), (n))
+#endif
 #define _zip_crypto_clear(b, l) explicit_memset((b), 0, (l))
 #else
 #ifdef HAVE_EXPLICIT_BZERO
