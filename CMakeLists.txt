@@ -165,6 +165,12 @@ file(GLOB LIBZIP_SRCS src/libzip/*.c)
 # and AES/crypto modules
 list(FILTER LIBZIP_SRCS EXCLUDE REGEX
     "(algorithm_bzip|algorithm_xz|algorithm_zstd|algorithm_lz4|pkware|winzip_aes|crypto)\\.c$")
+# zip_random_unix.c uses arc4random (POSIX/BSD) — exclude on Windows
+if(WIN32)
+    list(FILTER LIBZIP_SRCS EXCLUDE REGEX "zip_random_unix\\.c$")
+else()
+    list(FILTER LIBZIP_SRCS EXCLUDE REGEX "zip_random_win32\\.c$")
+endif()
 add_library(libzip STATIC ${LIBZIP_SRCS})
 target_compile_definitions(libzip PRIVATE HAVE_CONFIG_H)
 target_include_directories(libzip PUBLIC
