@@ -43,14 +43,14 @@
 #include <unistd.h>
 #endif
 
-#if 0 /* HAVE_CLONEFILE — macOS only, disabled */
+#if HAVE_CLONEFILE /* macOS only */
 #ifdef __APPLE__
 #include <sys/attr.h>
 #include <sys/clonefile.h>
 #endif
 #define CAN_CLONE
 #endif
-#ifdef HAVE_FICLONERANGE
+#if HAVE_FICLONERANGE
 #include <linux/fs.h>
 #include <sys/ioctl.h>
 #define CAN_CLONE
@@ -153,7 +153,7 @@ static zip_int64_t _zip_stdio_op_create_temp_output_cloning(zip_source_file_cont
         return -1;
     }
 
-#if 0 /* HAVE_CLONEFILE — macOS only, disabled */
+#if HAVE_CLONEFILE /* macOS only */
     /* clonefile insists on creating the file, so just create a name */
     if (create_temp_file(ctx, false) < 0) {
         return -1;
