@@ -18,19 +18,13 @@
 /* We use _lseeki64() on Windows. */
 typedef int64_t la_seek_t;
 
-/* POSIX types missing on Windows/MinGW */
+/* uid_t and gid_t are not defined in MinGW */
 #ifdef _WIN32
 # ifndef uid_t
   typedef unsigned int uid_t;
 # endif
 # ifndef gid_t
   typedef unsigned int gid_t;
-# endif
-# ifndef ino_t
-  typedef unsigned long long ino_t;
-# endif
-# ifndef dev_t
-  typedef unsigned int dev_t;
 # endif
 #endif
 
