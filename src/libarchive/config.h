@@ -65,9 +65,7 @@
 #define HAVE_GLOB_H 1
 #define HAVE_GRP_H 1
 #define HAVE_PWD_H 1
-#ifdef _WIN32
-#  define HAVE_SYS_IOCTL_H 0
-#else
+#ifndef _WIN32
 #  define HAVE_SYS_IOCTL_H 1
 #endif
 #define HAVE_SYS_UTSNAME_H 1
