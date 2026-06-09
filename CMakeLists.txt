@@ -172,7 +172,7 @@ else()
     list(FILTER LIBZIP_SRCS EXCLUDE REGEX "zip_random_win32\\.c$")
 endif()
 add_library(libzip STATIC ${LIBZIP_SRCS})
-target_compile_definitions(libzip PRIVATE HAVE_CONFIG_H)
+target_compile_definitions(libzip PUBLIC HAVE_CONFIG_H ZIP_STATIC)
 target_include_directories(libzip PUBLIC
     ${PROJECT_SOURCE_DIR}/src/libzip
     ${PROJECT_SOURCE_DIR}/src/zlib
@@ -186,9 +186,24 @@ target_link_libraries(libzip PUBLIC z)
 #   Linux / Windows       → find_package (system-installed, no manual config.h)
 ###############################################################################
 if(CMAKE_CROSSCOMPILING OR ANDROID)
-    include(${PROJECT_SOURCE_DIR}/.cmake/deps_libarchive.cmake)
-    set(LIBARCHIVE_TARGET archive_static)
-    set(LIBARCHIVE_INCLUDE_DIR "")
+    # Use vendored libarchive — avoids FetchContent target name conflicts
+    # with our own vendored liblzma/lz4/lzo/zstd/bz2 targets.
+    # Android is pure POSIX so no Windows config.h issues.
+    file(GLOB VENDORED_LA_SRCS "${PROJECT_SOURCE_DIR}/src/libarchive/*.c")
+    list(FILTER VENDORED_LA_SRCS EXCLUDE REGEX
+        "(filter_lzop|filter_lrzip|filter_lz4|filter_zstd|filter_bzip2|filter_grzip)\.c$")
+    add_library(archive STATIC ${VENDORED_LA_SRCS})
+    target_compile_definitions(archive PUBLIC HAVE_CONFIG_H LZMA_API_STATIC)
+    target_compile_options(archive PRIVATE
+        -include ${PROJECT_SOURCE_DIR}/src/libarchive/config.h)
+    target_include_directories(archive PUBLIC
+        ${PROJECT_SOURCE_DIR}/src/libarchive
+        ${PROJECT_SOURCE_DIR}/src/liblzma/api
+        ${PROJECT_SOURCE_DIR}/src/zlib
+    )
+    target_link_libraries(archive PUBLIC liblzma z)
+    set(LIBARCHIVE_TARGET archive)
+    set(LIBARCHIVE_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/src/libarchive)
 else()
     find_package(LibArchive REQUIRED)
     set(LIBARCHIVE_TARGET LibArchive::LibArchive)
@@ -215,6 +230,7 @@ if(NOT WIN32)
 endif()
 
 add_executable(utils ${SRCS})
+target_compile_definitions(utils PRIVATE ZIP_STATIC)
 
 target_include_directories(utils PRIVATE
     ${LZMA_INCLUDE_DIR}
