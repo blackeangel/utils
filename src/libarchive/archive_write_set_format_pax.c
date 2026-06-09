@@ -676,7 +676,8 @@ archive_write_pax_header(struct archive_write *a,
 			const wchar_t *wp;
 
 			wp = archive_entry_pathname_w(entry_original);
-			if (wp != NULL && wp[wcslen(wp) -1] != L'/') {
+			if (wp != NULL && wp[0] != L'\0' &&
+			    wp[wcslen(wp) - 1] != L'/') {
 				struct archive_wstring ws;
 
 				archive_string_init(&ws);

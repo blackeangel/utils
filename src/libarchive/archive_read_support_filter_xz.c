@@ -54,7 +54,6 @@ struct private_data {
 	lzma_stream	 stream;
 	unsigned char	*out_block;
 	size_t		 out_block_size;
-	int64_t		 total_out;
 	char		 eof; /* True = found end of compressed data. */
 	char		 in_stream;
 
@@ -83,8 +82,7 @@ static int	xz_lzma_bidder_init(struct archive_read_filter *);
 /*
  * Note that we can detect xz and lzma compressed files even if we
  * can't decompress them.  (In fact, we like detecting them because we
- * can give better error messages.)  So the bid framework here gets
- * compiled even if no lzma library is available.
+ * can give better error messages.)
  */
 static int	xz_bidder_bid(struct archive_read_filter_bidder *,
 		    struct archive_read_filter *);
@@ -526,6 +524,7 @@ xz_lzma_bidder_init(struct archive_read_filter *self)
 	free(state->out_block);
 	free(state);
 	self->data = NULL;
+	self->vtable = NULL;
 	return (ARCHIVE_FATAL);
 }
 
@@ -706,7 +705,6 @@ xz_filter_read(struct archive_read_filter *self, const void **p)
 	}
 
 	decompressed = state->stream.next_out - state->out_block;
-	state->total_out += decompressed;
 	state->member_out += decompressed;
 	if (decompressed == 0) {
 		if (member_in != state->member_in &&

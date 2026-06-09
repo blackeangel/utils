@@ -339,17 +339,10 @@ next_code(struct archive_read_filter *self)
 	struct private_data *state = (struct private_data *)self->data;
 	int code, newcode;
 
-	static int debug_buff[1024];
-	static unsigned debug_index;
-
 again:
 	code = newcode = getbits(self, state->bits);
 	if (code < 0)
 		return (code);
-
-	debug_buff[debug_index++] = code;
-	if (debug_index >= sizeof(debug_buff)/sizeof(debug_buff[0]))
-		debug_index = 0;
 
 	/* If it's a reset code, reset the dictionary. */
 	if ((code == 256) && state->use_reset_code) {

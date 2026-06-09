@@ -78,7 +78,7 @@ struct links_entry {
 struct archive_entry_linkresolver {
 	struct links_entry	**buckets;
 	struct links_entry	 *spare;
-	unsigned long		  number_entries;
+	size_t			  number_entries;
 	size_t			  number_buckets;
 	int			  strategy;
 };
@@ -381,6 +381,10 @@ insert_entry(struct archive_entry_linkresolver *res,
 	if (le == NULL)
 		return (NULL);
 	le->canonical = archive_entry_clone(entry);
+	if (le->canonical == NULL) {
+		free(le);
+		return (NULL);
+	}
 
 	/* If the links cache is getting too full, enlarge the hash table. */
 	if (res->number_entries > res->number_buckets * 2)

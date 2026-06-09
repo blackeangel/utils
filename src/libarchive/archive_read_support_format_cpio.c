@@ -160,6 +160,8 @@
 #define	afiol_filesize_c_offset 115	/* ':' */
 #define afiol_header_size 116
 
+/* CPIO name fields store a full pathname, including the terminating NUL. */
+#define	CPIO_PATHNAME_MAX	(1024 * 1024)
 
 struct links_entry {
         struct links_entry      *next;
@@ -385,8 +387,15 @@ archive_read_format_cpio_read_header(struct archive_read *a,
 	if (r < ARCHIVE_WARN)
 		return (r);
 
+	if (namelength > CPIO_PATHNAME_MAX) {
+		archive_set_error(&a->archive, ENOMEM,
+		    "Rejecting malformed cpio archive: "
+		    "pathname exceeds 1 megabyte");
+		return (ARCHIVE_FATAL);
+	}
+
 	/* Read name from buffer. */
-	h = __archive_read_ahead(a, namelength + name_pad, NULL);
+	h = __archive_read_ahead(a, namelength, NULL);
 	if (h == NULL)
 	    return (ARCHIVE_FATAL);
 	if (archive_entry_copy_pathname_l(entry,
@@ -403,7 +412,8 @@ archive_read_format_cpio_read_header(struct archive_read *a,
 	}
 	cpio->entry_offset = 0;
 
-	__archive_read_consume(a, namelength + name_pad);
+	__archive_read_consume(a, namelength);
+	__archive_read_consume(a, name_pad);
 
 	/* If this is a symlink, read the link contents. */
 	if (archive_entry_filetype(entry) == AE_IFLNK) {
@@ -703,13 +713,24 @@ find_odc_header(struct archive_read *a)
 {
 	const void *h;
 	const char *p, *q;
-	size_t skip, skipped = 0;
+	int64_t skip;
+	uintmax_t skipped = 0;
 	ssize_t bytes;
 
 	for (;;) {
-		h = __archive_read_ahead(a, odc_header_size, &bytes);
-		if (h == NULL)
-			return (ARCHIVE_FATAL);
+		size_t header_size;
+
+		header_size = afiol_header_size;
+		h = __archive_read_ahead(a, afiol_header_size, &bytes);
+		if (h == NULL) {
+			if (bytes >= odc_header_size) {
+				header_size = odc_header_size;
+				h = __archive_read_ahead(a, odc_header_size,
+				    &bytes);
+			}
+			if (h == NULL)
+				return (ARCHIVE_FATAL);
+		}
 		p = h;
 		q = p + bytes;
 
@@ -725,7 +746,7 @@ find_odc_header(struct archive_read *a)
 		 * Scan ahead until we find something that looks
 		 * like an odc header.
 		 */
-		while (p + odc_header_size <= q) {
+		while (p + header_size <= q) {
 			switch (p[5]) {
 			case '7':
 				if ((memcmp("070707", p, 6) == 0
@@ -741,9 +762,9 @@ find_odc_header(struct archive_read *a)
 					if (skipped > 0) {
 						archive_set_error(&a->archive,
 						    0,
-						    "Skipped %d bytes before "
+						    "Skipped %ju bytes before "
 						    "finding valid header",
-						    (int)skipped);
+						    skipped);
 						return (ARCHIVE_WARN);
 					}
 					return (ARCHIVE_OK);
@@ -828,7 +849,7 @@ header_odc(struct archive_read *a, struct cpio *cpio,
  * NOTE: if a filename suffix is ".z", it is a file gzipped by afio.
  * it would be nice if we could show uncompressed file size and
  * uncompress file contents automatically, unfortunately we have nothing
- * to get a uncompressed file size while reading each header. It means
+ * to get an uncompressed file size while reading each header. It means
  * we also cannot uncompress file contents under our framework.
  */
 static int
@@ -1102,20 +1123,32 @@ record_hardlink(struct archive_read *a,
 		    ENOMEM, "Out of memory adding file to list");
 		return (ARCHIVE_FATAL);
 	}
+
+	const char *pathname = archive_entry_pathname(entry);
+	if (pathname == NULL) {
+		archive_set_error(&a->archive,
+			ARCHIVE_ERRNO_FILE_FORMAT,
+           "Invalid hardlink entry with no pathname");
+		free(le);
+		return (ARCHIVE_FATAL);
+	}
+
+	le->dev = dev;
+	le->ino = ino;
+	le->links = archive_entry_nlink(entry) - 1;
+	le->name = strdup(pathname);
+	if (le->name == NULL) {
+		archive_set_error(&a->archive,
+		    ENOMEM, "Out of memory adding file to list");
+		free(le);
+		return (ARCHIVE_FATAL);
+	}
+
 	if (cpio->links_head != NULL)
 		cpio->links_head->previous = le;
 	le->next = cpio->links_head;
 	le->previous = NULL;
 	cpio->links_head = le;
-	le->dev = dev;
-	le->ino = ino;
-	le->links = archive_entry_nlink(entry) - 1;
-	le->name = strdup(archive_entry_pathname(entry));
-	if (le->name == NULL) {
-		archive_set_error(&a->archive,
-		    ENOMEM, "Out of memory adding file to list");
-		return (ARCHIVE_FATAL);
-	}
 
 	return (ARCHIVE_OK);
 }

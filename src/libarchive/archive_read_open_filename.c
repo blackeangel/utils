@@ -315,7 +315,7 @@ file_open(struct archive *a, void *client_data)
 		}
 #else
 		archive_set_error(a, ARCHIVE_ERRNO_MISC,
-		    "Unexpedted operation in archive_read_open_filename");
+		    "Unexpected operation in archive_read_open_filename");
 		goto fail;
 #endif
 	}

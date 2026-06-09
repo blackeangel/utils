@@ -181,30 +181,19 @@ target_link_libraries(libzip PUBLIC z)
 
 ###############################################################################
 # ── 10. libarchive (tar / cpio / raw + format detection) ─────────────────────
+# Strategy mirrors tar_repacker:
+#   Android/cross-compile → FetchContent (cmake generates correct config.h)
+#   Linux / Windows       → find_package (system-installed, no manual config.h)
 ###############################################################################
-file(GLOB LIBARCHIVE_SRCS src/libarchive/*.c)
-# Exclude platform-specific disk-traversal for wrong OS
-if(NOT WIN32)
-    list(FILTER LIBARCHIVE_SRCS EXCLUDE REGEX
-        "(archive_read_disk_windows|archive_write_disk_windows|filter_fork_windows)\\.c$")
+if(CMAKE_CROSSCOMPILING OR ANDROID)
+    include(${PROJECT_SOURCE_DIR}/.cmake/deps_libarchive.cmake)
+    set(LIBARCHIVE_TARGET archive_static)
+    set(LIBARCHIVE_INCLUDE_DIR "")
 else()
-    list(FILTER LIBARCHIVE_SRCS EXCLUDE REGEX
-        "(archive_read_disk_posix|archive_write_disk_posix|filter_fork_posix)\\.c$")
+    find_package(LibArchive REQUIRED)
+    set(LIBARCHIVE_TARGET LibArchive::LibArchive)
+    set(LIBARCHIVE_INCLUDE_DIR ${LibArchive_INCLUDE_DIRS})
 endif()
-# Exclude external-program filters (lzop, lrzip)
-list(FILTER LIBARCHIVE_SRCS EXCLUDE REGEX "(filter_lzop|filter_lrzip)\\.c$")
-
-add_library(archive STATIC ${LIBARCHIVE_SRCS})
-target_compile_definitions(archive PUBLIC HAVE_CONFIG_H LZMA_API_STATIC)
-target_compile_options(archive PRIVATE
-    -include ${PROJECT_SOURCE_DIR}/src/libarchive/config.h)
-target_include_directories(archive PUBLIC
-    ${PROJECT_SOURCE_DIR}/src/libarchive
-    ${PROJECT_SOURCE_DIR}/src/liblzma/api
-    ${PROJECT_SOURCE_DIR}/src/zlib
-)
-target_link_libraries(archive PUBLIC liblzma z)
-
 ###############################################################################
 # ── 12. utils executable ──────────────────────────────────────────────────────
 ###############################################################################
@@ -230,7 +219,7 @@ add_executable(utils ${SRCS})
 target_include_directories(utils PRIVATE
     ${LZMA_INCLUDE_DIR}
     ${BROTLI_INCLUDE_DIR}
-    ${PROJECT_SOURCE_DIR}/src/libarchive
+    ${LIBARCHIVE_INCLUDE_DIR}
     ${PROJECT_SOURCE_DIR}/src/libzip
     ${PROJECT_SOURCE_DIR}/src/bzip2
     ${PROJECT_SOURCE_DIR}/src/lz4

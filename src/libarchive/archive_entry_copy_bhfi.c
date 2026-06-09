@@ -24,46 +24,32 @@
  */
 
 #include "archive_platform.h"
-
-#ifdef HAVE_SYS_STAT_H
-#include <sys/stat.h>
-#endif
-
+#include "archive_time_private.h"
+#include "archive_private.h"
 #include "archive_entry.h"
-#include "archive_entry_private.h"
 
-const char *
-archive_entry_strmode(struct archive_entry *entry)
+#if defined(_WIN32) && !defined(__CYGWIN__)
+
+void
+archive_entry_copy_bhfi(struct archive_entry *entry,
+			BY_HANDLE_FILE_INFORMATION *bhfi)
 {
-	char *bp = entry->strmode;
-	mode_t mask, mode;
-	int i;
+	int64_t secs;
+	uint32_t nsecs;
 
-	switch (archive_entry_filetype(entry)) {
-	case AE_IFREG:  bp[0] = '-'; break;
-	case AE_IFBLK:  bp[0] = 'b'; break;
-	case AE_IFCHR:  bp[0] = 'c'; break;
-	case AE_IFDIR:  bp[0] = 'd'; break;
-	case AE_IFLNK:  bp[0] = 'l'; break;
-	case AE_IFSOCK: bp[0] = 's'; break;
-	case AE_IFIFO:  bp[0] = 'p'; break;
-	default:
-		bp[0] = (archive_entry_hardlink(entry) != NULL) ? 'h' : '?';
-		break;
-	}
-
-	mode = archive_entry_mode(entry);
-	for (i = 0, mask = 0400; i < 9; i++, mask >>= 1)
-		bp[i + 1] = (mode & mask) ? "rwx"[i % 3] : '-';
-
-	if (mode & S_ISUID)
-		bp[3] = (mode & 0100) ? 's' : 'S';
-	if (mode & S_ISGID)
-		bp[6] = (mode & 0010) ? 's' : 'S';
-	if (mode & S_ISVTX)
-		bp[9] = (mode & 0001) ? 't' : 'T';
-	bp[10] = (archive_entry_acl_types(entry) != 0) ? '+' : ' ';
-	bp[11] = '\0';
-
-	return (bp);
+	ntfs_to_unix(FILETIME_to_ntfs(&bhfi->ftLastAccessTime), &secs, &nsecs);
+	archive_entry_set_atime(entry, secs, nsecs);
+	ntfs_to_unix(FILETIME_to_ntfs(&bhfi->ftLastWriteTime), &secs, &nsecs);
+	archive_entry_set_mtime(entry, secs, nsecs);
+	ntfs_to_unix(FILETIME_to_ntfs(&bhfi->ftCreationTime), &secs, &nsecs);
+	archive_entry_set_birthtime(entry, secs, nsecs);
+	archive_entry_set_ctime(entry, secs, nsecs);
+	archive_entry_set_dev(entry, bhfi->dwVolumeSerialNumber);
+	archive_entry_set_ino64(entry, (((int64_t)bhfi->nFileIndexHigh) << 32)
+		+ bhfi->nFileIndexLow);
+	archive_entry_set_nlink(entry, bhfi->nNumberOfLinks);
+	archive_entry_set_size(entry, (((int64_t)bhfi->nFileSizeHigh) << 32)
+		+ bhfi->nFileSizeLow);
+	/* archive_entry_set_mode(entry, st->st_mode); */
 }
+#endif

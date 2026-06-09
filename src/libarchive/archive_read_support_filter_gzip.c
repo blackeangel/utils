@@ -56,7 +56,6 @@ struct private_data {
 	char		 in_stream;
 	unsigned char	*out_block;
 	size_t		 out_block_size;
-	int64_t		 total_out;
 	unsigned long	 crc;
 	uint32_t	 mtime;
 	char		*name;
@@ -71,12 +70,7 @@ static int	gzip_filter_close(struct archive_read_filter *);
 /*
  * Note that we can detect gzip archives even if we can't decompress
  * them.  (In fact, we like detecting them because we can give better
- * error messages.)  So the bid framework here gets compiled even
- * if zlib is unavailable.
- *
- * TODO: If zlib is unavailable, gzip_bidder_init() should
- * use the compress_program framework to try to fire up an external
- * gzip program.
+ * error messages.)
  */
 static int	gzip_bidder_bid(struct archive_read_filter_bidder *,
 		    struct archive_read_filter *);
@@ -284,7 +278,7 @@ gzip_read_header(struct archive_read_filter *self, struct archive_entry *entry)
 
 	state = (struct private_data *)self->data;
 
-	/* A mtime of 0 is considered invalid/missing. */
+	/* An mtime of 0 is considered invalid/missing. */
 	if (state->mtime != 0)
 		archive_entry_set_mtime(entry, state->mtime, 0);
 
@@ -341,7 +335,7 @@ static int
 consume_header(struct archive_read_filter *self)
 {
 	struct private_data *state;
-	ssize_t avail;
+	ssize_t avail, max_in;
 	size_t len;
 	int ret;
 
@@ -359,6 +353,18 @@ consume_header(struct archive_read_filter *self)
 	/* Initialize compression library. */
 	state->stream.next_in = (unsigned char *)(uintptr_t)
 	    __archive_read_filter_ahead(self->upstream, 1, &avail);
+	if (avail < 0) {
+		archive_set_error(&self->archive->archive,
+		    ARCHIVE_ERRNO_MISC,
+		    "Failed to read gzip input");
+		return (ARCHIVE_FATAL);
+	}
+	if (UINT_MAX >= SSIZE_MAX)
+		max_in = SSIZE_MAX;
+	else
+		max_in = UINT_MAX;
+	if (avail > max_in)
+		avail = max_in;
 	state->stream.avail_in = (uInt)avail;
 	ret = inflateInit2(&(state->stream),
 	    -15 /* Don't check for zlib header */);
@@ -502,7 +508,6 @@ gzip_filter_read(struct archive_read_filter *self, const void **p)
 
 	/* We've read as much as we can. */
 	decompressed = state->stream.next_out - state->out_block;
-	state->total_out += decompressed;
 	if (decompressed == 0)
 		*p = NULL;
 	else

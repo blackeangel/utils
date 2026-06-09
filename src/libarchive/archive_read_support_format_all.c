@@ -53,9 +53,14 @@ archive_read_support_format_all(struct archive *a)
 	 * high, we can maybe avoid running any of the more expensive
 	 * bidders below.
 	 */
+	archive_read_support_format_ar(a);
 	archive_read_support_format_cpio(a);
 	archive_read_support_format_empty(a);
+	archive_read_support_format_lha(a);
+	archive_read_support_format_mtree(a);
 	archive_read_support_format_tar(a);
+	archive_read_support_format_xar(a);
+	archive_read_support_format_warc(a);
 
 	/*
 	 * Install expensive bidders last.  By doing them last, we
@@ -63,8 +68,14 @@ archive_read_support_format_all(struct archive *a)
 	 * make it unnecessary for these to do anything at all.
 	 */
 	/* These have potentially large look-ahead. */
+	archive_read_support_format_7zip(a);
+	archive_read_support_format_cab(a);
+	archive_read_support_format_rar(a);
+	archive_read_support_format_rar5(a);
+	archive_read_support_format_iso9660(a);
 	/* Seek is really bad, since it forces the read-ahead
 	 * logic to discard buffered data. */
+	archive_read_support_format_zip(a);
 
 	/* Note: We always return ARCHIVE_OK here, even if some of the
 	 * above return ARCHIVE_WARN.  The intent here is to enable

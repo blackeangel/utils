@@ -299,6 +299,26 @@ typedef int mbstate_t;
 size_t wcrtomb(char *, wchar_t, mbstate_t *);
 #endif
 
+#ifndef WINAPI_FAMILY_PARTITION
+#define WINAPI_FAMILY_PARTITION(x) (x)
+#endif
+
+#ifndef WINAPI_PARTITION_DESKTOP
+#define WINAPI_PARTITION_DESKTOP 1
+#endif
+
+#ifndef WINAPI_PARTITION_SYSTEM
+#define WINAPI_PARTITION_SYSTEM 1
+#endif
+
+#ifndef NTDDI_VERSION
+#define NTDDI_VERSION  0x05020000
+#endif
+
+#ifndef NTDDI_WIN10_VB
+#define NTDDI_WIN10_VB 0x0A000008
+#endif
+
 #if !WINAPI_FAMILY_PARTITION (WINAPI_PARTITION_DESKTOP) && NTDDI_VERSION < NTDDI_WIN10_VB
 // not supported in UWP SDK before 20H1
 #define GetVolumePathNameW(f, v, c)   (0)
