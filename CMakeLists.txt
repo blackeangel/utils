@@ -185,29 +185,73 @@ target_link_libraries(libzip PUBLIC z)
 #   Android/cross-compile → FetchContent (cmake generates correct config.h)
 #   Linux / Windows       → find_package (system-installed, no manual config.h)
 ###############################################################################
-if(CMAKE_CROSSCOMPILING OR ANDROID)
-    # Use vendored libarchive — avoids FetchContent target name conflicts
-    # with our own vendored liblzma/lz4/lzo/zstd/bz2 targets.
-    # Android is pure POSIX so no Windows config.h issues.
-    file(GLOB VENDORED_LA_SRCS "${PROJECT_SOURCE_DIR}/src/libarchive/*.c")
-    list(FILTER VENDORED_LA_SRCS EXCLUDE REGEX
-        "(filter_lzop|filter_lrzip|filter_lz4|filter_zstd|filter_bzip2|filter_grzip)\.c$")
-    add_library(archive STATIC ${VENDORED_LA_SRCS})
-    target_compile_definitions(archive PUBLIC HAVE_CONFIG_H LZMA_API_STATIC)
-    target_compile_options(archive PRIVATE
-        -include ${PROJECT_SOURCE_DIR}/src/libarchive/config.h)
-    target_include_directories(archive PUBLIC
-        ${PROJECT_SOURCE_DIR}/src/libarchive
-        ${PROJECT_SOURCE_DIR}/src/liblzma/api
-        ${PROJECT_SOURCE_DIR}/src/zlib
-    )
-    target_link_libraries(archive PUBLIC liblzma z)
-    set(LIBARCHIVE_TARGET archive)
-    set(LIBARCHIVE_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/src/libarchive)
-else()
-    find_package(LibArchive REQUIRED)
-    set(LIBARCHIVE_TARGET LibArchive::LibArchive)
-    set(LIBARCHIVE_INCLUDE_DIR ${LibArchive_INCLUDE_DIRS})
+# ── libarchive: FetchContent everywhere, using our vendored compression libs ──
+# Pre-set find_package variables so libarchive's cmake uses OUR static libs
+# instead of downloading/finding system versions (avoids __imp_ DLL issues on
+# Windows and avoids FetchContent target conflicts for lzma/lz4/zstd/bz2).
+include(FetchContent)
+
+set(ZLIB_FOUND          TRUE  CACHE BOOL "" FORCE)
+set(ZLIB_INCLUDE_DIRS   ${PROJECT_SOURCE_DIR}/src/zlib CACHE PATH "" FORCE)
+set(ZLIB_LIBRARIES      z     CACHE STRING "" FORCE)
+set(ZLIB_VERSION_STRING "1.3.1")
+
+set(BZIP2_FOUND         TRUE  CACHE BOOL "" FORCE)
+set(BZIP2_INCLUDE_DIR   ${PROJECT_SOURCE_DIR}/src/bzip2 CACHE PATH "" FORCE)
+set(BZIP2_LIBRARIES     bz2   CACHE STRING "" FORCE)
+
+set(LIBLZMA_FOUND       TRUE  CACHE BOOL "" FORCE)
+set(LIBLZMA_INCLUDE_DIRS ${PROJECT_SOURCE_DIR}/src/liblzma/api CACHE PATH "" FORCE)
+set(LIBLZMA_LIBRARIES   liblzma CACHE STRING "" FORCE)
+set(LIBLZMA_VERSION_STRING "5.6.3")
+set(LIBLZMA_HAS_AUTO_DECODER   1)
+set(LIBLZMA_HAS_EASY_ENCODER   1)
+set(LIBLZMA_HAS_LZMA_PRESET    1)
+
+set(LZ4_FOUND           TRUE  CACHE BOOL "" FORCE)
+set(LZ4_INCLUDE_DIR     ${PROJECT_SOURCE_DIR}/src/lz4 CACHE PATH "" FORCE)
+set(LZ4_LIBRARY         lz4   CACHE STRING "" FORCE)
+
+set(Zstd_FOUND          TRUE  CACHE BOOL "" FORCE)
+set(Zstd_INCLUDE_DIR    ${PROJECT_SOURCE_DIR}/src/zstd CACHE PATH "" FORCE)
+set(Zstd_LIBRARY        zstd  CACHE STRING "" FORCE)
+
+# Disable optional deps we don't have
+foreach(_opt OPENSSL MBEDTLS NETTLE ICONV EXPAT LIBXML2 XATTR ACL LZO2
+             TEST TAR CPIO CAT UNZIP DOXYGEN)
+    set(ENABLE_${_opt} OFF CACHE BOOL "" FORCE)
+endforeach()
+set(ENABLE_BZip2  ON  CACHE BOOL "" FORCE)
+set(ENABLE_ZLIB   ON  CACHE BOOL "" FORCE)
+set(ENABLE_LZMA   ON  CACHE BOOL "" FORCE)
+set(ENABLE_LZ4    ON  CACHE BOOL "" FORCE)
+set(ENABLE_ZSTD   ON  CACHE BOOL "" FORCE)
+
+FetchContent_Declare(
+    libarchive_fetch
+    GIT_REPOSITORY https://github.com/libarchive/libarchive.git
+    GIT_TAG        v3.7.4
+    GIT_SHALLOW    TRUE
+)
+FetchContent_MakeAvailable(libarchive_fetch)
+set(LIBARCHIVE_TARGET   archive_static)
+set(LIBARCHIVE_INCLUDE_DIR ${libarchive_fetch_SOURCE_DIR}/libarchive)
+
+# Create standard IMPORTED target aliases that libarchive's cmake expects
+if(NOT TARGET ZLIB::ZLIB)
+    add_library(ZLIB::ZLIB ALIAS z)
+endif()
+if(NOT TARGET BZip2::BZip2)
+    add_library(BZip2::BZip2 ALIAS bz2)
+endif()
+if(NOT TARGET LibLZMA::LibLZMA)
+    add_library(LibLZMA::LibLZMA ALIAS liblzma)
+endif()
+if(NOT TARGET lz4)
+    # lz4 target already exists
+endif()
+if(NOT TARGET zstd::libzstd_static)
+    add_library(zstd::libzstd_static ALIAS zstd)
 endif()
 ###############################################################################
 # ── 12. utils executable ──────────────────────────────────────────────────────
