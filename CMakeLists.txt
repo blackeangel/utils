@@ -233,6 +233,9 @@ FetchContent_Declare(
     GIT_TAG        v3.7.4
     GIT_SHALLOW    TRUE
 )
+set(BUILD_SHARED_LIBS   OFF CACHE BOOL "" FORCE)
+set(ENABLE_SHARED       OFF CACHE BOOL "" FORCE)
+set(ENABLE_STATIC       ON  CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(libarchive_fetch)
 set(LIBARCHIVE_TARGET   archive_static)
 set(LIBARCHIVE_INCLUDE_DIR ${libarchive_fetch_SOURCE_DIR}/libarchive)
