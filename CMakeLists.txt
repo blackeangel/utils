@@ -237,8 +237,17 @@ set(BUILD_SHARED_LIBS   OFF CACHE BOOL "" FORCE)
 set(ENABLE_SHARED       OFF CACHE BOOL "" FORCE)
 set(ENABLE_STATIC       ON  CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(libarchive_fetch)
-set(LIBARCHIVE_TARGET   archive_static)
 set(LIBARCHIVE_INCLUDE_DIR ${libarchive_fetch_SOURCE_DIR}/libarchive)
+
+# Wrap archive_static in a clean IMPORTED target to avoid -larchive link flag
+# that archive_static's INTERFACE_LINK_LIBRARIES may generate
+add_library(_libarchive_static STATIC IMPORTED GLOBAL)
+add_dependencies(_libarchive_static archive_static)
+set_target_properties(_libarchive_static PROPERTIES
+    IMPORTED_LOCATION $<TARGET_FILE:archive_static>
+    INTERFACE_INCLUDE_DIRECTORIES "${libarchive_fetch_SOURCE_DIR}/libarchive"
+)
+set(LIBARCHIVE_TARGET _libarchive_static)
 
 # Create standard IMPORTED target aliases that libarchive's cmake expects
 if(NOT TARGET ZLIB::ZLIB)
@@ -249,9 +258,6 @@ if(NOT TARGET BZip2::BZip2)
 endif()
 if(NOT TARGET LibLZMA::LibLZMA)
     add_library(LibLZMA::LibLZMA ALIAS liblzma)
-endif()
-if(NOT TARGET lz4)
-    # lz4 target already exists
 endif()
 if(NOT TARGET zstd::libzstd_static)
     add_library(zstd::libzstd_static ALIAS zstd)
