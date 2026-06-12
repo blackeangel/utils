@@ -239,14 +239,18 @@ set(ENABLE_STATIC       ON  CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(libarchive_fetch)
 set(LIBARCHIVE_INCLUDE_DIR ${libarchive_fetch_SOURCE_DIR}/libarchive)
 
-# Wrap archive_static in a clean IMPORTED target to avoid -larchive link flag
-# that archive_static's INTERFACE_LINK_LIBRARIES may generate
+# Point directly to the built static library file.
+# Generator expressions in IMPORTED_LOCATION are unreliable here.
+# libarchive_fetch_BINARY_DIR is set by FetchContent_MakeAvailable.
+set(_la_file
+    "${libarchive_fetch_BINARY_DIR}/libarchive/libarchive.a")
 add_library(_libarchive_static STATIC IMPORTED GLOBAL)
 add_dependencies(_libarchive_static archive_static)
-set_target_properties(_libarchive_static PROPERTIES
-    IMPORTED_LOCATION $<TARGET_FILE:archive_static>
-    INTERFACE_INCLUDE_DIRECTORIES "${libarchive_fetch_SOURCE_DIR}/libarchive"
-)
+set_property(TARGET _libarchive_static
+    PROPERTY IMPORTED_LOCATION "${_la_file}")
+set_property(TARGET _libarchive_static
+    PROPERTY INTERFACE_INCLUDE_DIRECTORIES
+    "${libarchive_fetch_SOURCE_DIR}/libarchive")
 set(LIBARCHIVE_TARGET _libarchive_static)
 
 # Create standard IMPORTED target aliases that libarchive's cmake expects
@@ -298,9 +302,9 @@ target_include_directories(utils PRIVATE
 )
 
 target_link_libraries(utils
-    png z liblzma brotli
-    bz2 lz4 lzo2 zstd
-    libzip archive
+    png libzip
+    ${LIBARCHIVE_TARGET}
+    bz2 lz4 lzo2 zstd liblzma brotli z
     Threads::Threads
 )
 
