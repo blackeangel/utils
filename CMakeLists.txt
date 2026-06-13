@@ -221,6 +221,15 @@ foreach(_opt OPENSSL MBEDTLS NETTLE ICONV EXPAT LIBXML2 XATTR ACL LZO2
              TEST TAR CPIO CAT UNZIP DOXYGEN)
     set(ENABLE_${_opt} OFF CACHE BOOL "" FORCE)
 endforeach()
+
+# Prevent libarchive's find_package(ZLIB/BZip2/LibLZMA/LZ4/zstd) from
+# discovering system packages (e.g. MSYS2's DLL-based zlib, which would
+# trigger libarchive's ZLIB_DLL detection -> __imp_inflate link errors).
+# Our presets above (ZLIB_FOUND=TRUE etc.) plus PUBLIC propagation from
+# our own z/bz2/liblzma/lz4/zstd targets are sufficient.
+foreach(_pkg ZLIB BZip2 LibLZMA LZ4 zstd)
+    set(CMAKE_DISABLE_FIND_PACKAGE_${_pkg} ON CACHE BOOL "" FORCE)
+endforeach()
 set(ENABLE_BZip2  ON  CACHE BOOL "" FORCE)
 set(ENABLE_ZLIB   ON  CACHE BOOL "" FORCE)
 set(ENABLE_LZMA   ON  CACHE BOOL "" FORCE)
@@ -311,6 +320,11 @@ target_link_libraries(utils
     bz2 lz4 lzo2 zstd liblzma brotli z
     Threads::Threads
 )
+if(WIN32)
+    # archive_digest.c (MD5/SHA*) and archive_random.c (CSPRNG) use
+    # the Windows CNG API (BCrypt*) when built for Windows.
+    target_link_libraries(utils bcrypt)
+endif()
 
 # ── Strip binary in Release ────────────────────────────────────────────────────
 if(CMAKE_BUILD_TYPE STREQUAL "Release" OR CMAKE_BUILD_TYPE STREQUAL "MinSizeRel")

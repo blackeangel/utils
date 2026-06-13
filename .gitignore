@@ -376,3 +376,4 @@ out/
 
 # e2fsdroid - removed from project, keep locally only
 src/e2fsdroid/
+build_win/
