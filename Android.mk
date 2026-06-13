@@ -218,7 +218,7 @@ include $(BUILD_STATIC_LIBRARY)
 #####################################################################################
 include $(CLEAR_VARS)
 LOCAL_MODULE        := libzstd
-LOCAL_CFLAGS        := -O2 -DZSTD_MULTITHREAD=0
+LOCAL_CFLAGS        := -O2 -DZSTD_MULTITHREAD=0 -DZSTD_DISABLE_ASM
 LOCAL_C_INCLUDES    := src/zstd
 LOCAL_SRC_FILES     := \
 src/zstd/debug.c \

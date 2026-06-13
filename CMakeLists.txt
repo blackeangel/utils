@@ -154,7 +154,7 @@ target_include_directories(lzo2 PUBLIC ${PROJECT_SOURCE_DIR}/src/lzo)
 file(GLOB ZSTD_SRCS src/zstd/*.c)
 list(FILTER ZSTD_SRCS EXCLUDE REGEX "(zstd_v0[0-9]|legacy|fuzz)\\.c$")
 add_library(zstd STATIC ${ZSTD_SRCS})
-target_compile_definitions(zstd PRIVATE ZSTD_MULTITHREAD=0)
+target_compile_definitions(zstd PRIVATE ZSTD_MULTITHREAD=0 ZSTD_DISABLE_ASM)
 target_include_directories(zstd PUBLIC ${PROJECT_SOURCE_DIR}/src/zstd)
 
 ###############################################################################
