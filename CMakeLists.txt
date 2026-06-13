@@ -233,6 +233,10 @@ FetchContent_Declare(
     GIT_TAG        v3.7.4
     GIT_SHALLOW    TRUE
 )
+# libarchive's CMakeLists.txt declares cmake_minimum_required(VERSION 2.8.12),
+# which CMake >= 4.0 rejects outright (policies < 3.5 removed).
+# CMAKE_POLICY_VERSION_MINIMUM tells CMake to treat it as 3.5 instead.
+set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
 set(BUILD_SHARED_LIBS   OFF CACHE BOOL "" FORCE)
 set(ENABLE_SHARED       OFF CACHE BOOL "" FORCE)
 set(ENABLE_STATIC       ON  CACHE BOOL "" FORCE)
