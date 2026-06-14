@@ -315,13 +315,25 @@ target_include_directories(utils PRIVATE
 )
 
 if(MINGW OR WIN32)
-    # MinGW ld.exe does a single pass over .a archives and discards object
-    # files that appear to have no external dependents at that point in the
-    # scan. This breaks intra-archive references: archive_read_support_format_
-    # rar5.c.obj needs blake2sp_{init,update,final} defined in archive_blake2sp_
-    # ref.c.obj in the SAME libarchive.a, but ld misses them.
-    # --whole-archive forces ALL objects from libarchive.a to be included.
+    # GCC 16.1.0 / ld.exe (MinGW-w64) compiles each function into its own
+    # COMDAT section (.text$funcname). --whole-archive forces all objects from
+    # libarchive.a to be included, but ld then eliminates COMDAT groups it
+    # considers unreferenced BEFORE discovering that rar5.c.obj needs
+    # blake2sp_{init,update,final} from archive_blake2sp_ref.c.obj (same .a).
+    #
+    # -Wl,-u,blake2sp_* makes the linker treat these as "externally needed"
+    # symbols from the very start, preventing COMDAT elimination of
+    # archive_blake2sp_ref.c.obj regardless of scan order.
+    #
     # BCrypt: archive_digest.c (MD5/SHA*) and archive_random.c use BCrypt* API.
+    target_link_options(utils PRIVATE
+        -Wl,-u,blake2sp_init
+        -Wl,-u,blake2sp_update
+        -Wl,-u,blake2sp_final
+        -Wl,-u,blake2s_init
+        -Wl,-u,blake2s_update
+        -Wl,-u,blake2s_final
+    )
     target_link_libraries(utils
         png libzip
         -Wl,--whole-archive ${LIBARCHIVE_TARGET} -Wl,--no-whole-archive
