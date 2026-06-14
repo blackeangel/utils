@@ -242,14 +242,49 @@ FetchContent_Declare(
     GIT_TAG        v3.7.4
     GIT_SHALLOW    TRUE
 )
-# libarchive's CMakeLists.txt declares cmake_minimum_required(VERSION 2.8.12),
-# which CMake >= 4.0 rejects outright (policies < 3.5 removed).
-# CMAKE_POLICY_VERSION_MINIMUM tells CMake to treat it as 3.5 instead.
-set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
-set(BUILD_SHARED_LIBS   OFF CACHE BOOL "" FORCE)
-set(ENABLE_SHARED       OFF CACHE BOOL "" FORCE)
-set(ENABLE_STATIC       ON  CACHE BOOL "" FORCE)
-FetchContent_MakeAvailable(libarchive_fetch)
+# Use Populate+patch+add_subdirectory instead of MakeAvailable so we can
+# remove rar5/blake2 before cmake processes libarchive's CMakeLists.txt.
+# ld.exe (MinGW-w64 GCC 16.1.0) COMDAT-eliminates blake2sp symbols even
+# with --whole-archive and -Wl,-u. Removing rar5 (the only blake2 consumer)
+# is the only reliable fix. We don't need RAR5 — only tar/cpio is required.
+FetchContent_GetProperties(libarchive_fetch)
+if(NOT libarchive_fetch_POPULATED)
+    FetchContent_Populate(libarchive_fetch)
+
+    # Patch: remove blake2 from libarchive/CMakeLists.txt source list.
+    # Blake2 compiled separately as libblake2 to avoid MinGW ld.exe 16.1.0
+    # COMDAT elimination (ld puts each fn in .text$fn COMDAT and discards
+    # blake2sp objects even under --whole-archive before rar5.obj needs them).
+    set(_la_cmake "${libarchive_fetch_SOURCE_DIR}/libarchive/CMakeLists.txt")
+    file(READ "${_la_cmake}" _la_cml)
+    foreach(_rm "archive_blake2s_ref.c" "archive_blake2sp_ref.c")
+        string(REGEX REPLACE "[ \t]*${_rm}[ \t
+]*" "" _la_cml "${_la_cml}")
+    endforeach()
+    file(WRITE "${_la_cmake}" "${_la_cml}")
+
+    # cmake_minimum_required(VERSION 2.8.12) rejected by cmake>=4
+    set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
+    set(BUILD_SHARED_LIBS   OFF CACHE BOOL "" FORCE)
+    set(ENABLE_SHARED       OFF CACHE BOOL "" FORCE)
+    set(ENABLE_STATIC       ON  CACHE BOOL "" FORCE)
+
+    # Process libarchive (generates config.h in binary dir)
+    add_subdirectory(${libarchive_fetch_SOURCE_DIR} ${libarchive_fetch_BINARY_DIR})
+
+    # libblake2 defined AFTER add_subdirectory so config.h already exists.
+    # -fno-function-sections keeps all blake2 fns in one .text section
+    # (not per-fn COMDATs), so the linker resolves them from outside .a
+    add_library(libblake2 STATIC
+        ${libarchive_fetch_SOURCE_DIR}/libarchive/archive_blake2s_ref.c
+        ${libarchive_fetch_SOURCE_DIR}/libarchive/archive_blake2sp_ref.c
+    )
+    target_compile_options(libblake2 PRIVATE -fno-function-sections)
+    target_compile_definitions(libblake2 PRIVATE HAVE_CONFIG_H)
+    target_include_directories(libblake2 PUBLIC
+        ${libarchive_fetch_SOURCE_DIR}/libarchive
+        ${libarchive_fetch_BINARY_DIR}/libarchive)
+endif()
 set(LIBARCHIVE_INCLUDE_DIR ${libarchive_fetch_SOURCE_DIR}/libarchive)
 
 # Point directly to the built static library file.
@@ -326,17 +361,10 @@ if(MINGW OR WIN32)
     # archive_blake2sp_ref.c.obj regardless of scan order.
     #
     # BCrypt: archive_digest.c (MD5/SHA*) and archive_random.c use BCrypt* API.
-    target_link_options(utils PRIVATE
-        -Wl,-u,blake2sp_init
-        -Wl,-u,blake2sp_update
-        -Wl,-u,blake2sp_final
-        -Wl,-u,blake2s_init
-        -Wl,-u,blake2s_update
-        -Wl,-u,blake2s_final
-    )
     target_link_libraries(utils
         png libzip
         -Wl,--whole-archive ${LIBARCHIVE_TARGET} -Wl,--no-whole-archive
+        libblake2
         bz2 lz4 lzo2 zstd liblzma brotli z
         bcrypt
         Threads::Threads
@@ -345,6 +373,7 @@ else()
     target_link_libraries(utils
         png libzip
         ${LIBARCHIVE_TARGET}
+        libblake2
         bz2 lz4 lzo2 zstd liblzma brotli z
         Threads::Threads
     )
