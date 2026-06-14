@@ -314,16 +314,28 @@ target_include_directories(utils PRIVATE
     ${PROJECT_SOURCE_DIR}/src/tar_repacker
 )
 
-target_link_libraries(utils
-    png libzip
-    ${LIBARCHIVE_TARGET}
-    bz2 lz4 lzo2 zstd liblzma brotli z
-    Threads::Threads
-)
-if(WIN32)
-    # archive_digest.c (MD5/SHA*) and archive_random.c (CSPRNG) use
-    # the Windows CNG API (BCrypt*) when built for Windows.
-    target_link_libraries(utils bcrypt)
+if(MINGW OR WIN32)
+    # MinGW ld.exe does a single pass over .a archives and discards object
+    # files that appear to have no external dependents at that point in the
+    # scan. This breaks intra-archive references: archive_read_support_format_
+    # rar5.c.obj needs blake2sp_{init,update,final} defined in archive_blake2sp_
+    # ref.c.obj in the SAME libarchive.a, but ld misses them.
+    # --whole-archive forces ALL objects from libarchive.a to be included.
+    # BCrypt: archive_digest.c (MD5/SHA*) and archive_random.c use BCrypt* API.
+    target_link_libraries(utils
+        png libzip
+        -Wl,--whole-archive ${LIBARCHIVE_TARGET} -Wl,--no-whole-archive
+        bz2 lz4 lzo2 zstd liblzma brotli z
+        bcrypt
+        Threads::Threads
+    )
+else()
+    target_link_libraries(utils
+        png libzip
+        ${LIBARCHIVE_TARGET}
+        bz2 lz4 lzo2 zstd liblzma brotli z
+        Threads::Threads
+    )
 endif()
 
 # ── Strip binary in Release ────────────────────────────────────────────────────
